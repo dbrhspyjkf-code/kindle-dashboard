@@ -31,8 +31,11 @@ SCOPE = "Tasks.Read offline_access openid profile"
 GRAPH = "https://graph.microsoft.com/v1.0"
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# token 默认跟随 KINDLE_DATA_DIR(与 apple/ccusage 一致):Docker 下落 /data 卷,
+# 容器重建/升级不丢登录。KINDLE_MSTODO_TOKEN 仍可单独覆盖(向后兼容)。
+_DATA_DIR = os.environ.get("KINDLE_DATA_DIR", os.path.join(_REPO, "data"))
 TOKEN_FILE = os.environ.get(
-    "KINDLE_MSTODO_TOKEN", os.path.join(_REPO, "data", "mstodo_token.json"))
+    "KINDLE_MSTODO_TOKEN", os.path.join(_DATA_DIR, "mstodo_token.json"))
 
 _token_lock = threading.RLock()
 _sessions = {}                 # 进行中的登录会话 {sid: {state, account?, lists?, error?}}

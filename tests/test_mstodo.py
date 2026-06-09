@@ -165,3 +165,32 @@ def test_build_context_merges_apple_and_mstodo():
     assert rem["total"] == 2          # 两条未完成(已完成的不计)
     allt = [x["title"] for x in rem["overdue"] + rem["today"] + rem["upcoming"]]
     assert "苹果事" in allt and "兔兔事" in allt and "已完成" not in allt
+
+
+# ---------- token 持久化(Docker 卷)----------
+def _token_path_with_env(**env_over):
+    """子进程里 import mstodo,回显解析出的 TOKEN_FILE(模块加载即定,故用子进程控 env)。"""
+    import os
+    import subprocess
+    import sys
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = dict(os.environ)
+    env.pop("KINDLE_DATA_DIR", None)
+    env.pop("KINDLE_MSTODO_TOKEN", None)
+    env.update(env_over)
+    r = subprocess.run([sys.executable, "-c",
+                        "from server.sources import mstodo; print(mstodo.TOKEN_FILE)"],
+                       capture_output=True, text=True, env=env, cwd=repo)
+    assert r.returncode == 0, r.stderr
+    return r.stdout.strip()
+
+
+def test_token_follows_data_dir():
+    # token 默认跟随 KINDLE_DATA_DIR → Docker 落 /data 卷,容器 rebuild 不丢登录
+    assert _token_path_with_env(KINDLE_DATA_DIR="/tmp/kd-x") == "/tmp/kd-x/mstodo_token.json"
+
+
+def test_token_explicit_override_wins():
+    # KINDLE_MSTODO_TOKEN 显式指定仍优先(向后兼容)
+    assert _token_path_with_env(KINDLE_DATA_DIR="/tmp/kd-x",
+                                KINDLE_MSTODO_TOKEN="/custom/tok.json") == "/custom/tok.json"
