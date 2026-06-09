@@ -124,6 +124,50 @@ def test_unconfigured_push_device_not_on_dashboard():
     assert ctx["device"]["machines"] == []
 
 
+def _cache_with_push(secs_ago):
+    """加一台 updated_at 在 secs_ago 秒前上报过的 push 设备(模拟 agent 关机)。"""
+    cache = _mock_cache()
+    cache["devices_metrics"]["win-pc"] = {
+        "hostname": "win-pc", "cpu_pct": 5,
+        "mem_used": 4 * 1024**3, "mem_total": 16 * 1024**3,
+        "updated_at": time.time() - secs_ago,
+    }
+    return cache
+
+
+_PUSH_PC = {"id": "win-pc", "name": "win-pc", "mode": "push"}
+
+
+def test_offline_push_device_hidden():
+    """push 设备关机后(updated_at 超时)不再上看板——Windows 关机不该残留占用。"""
+    cfg = {"devices": {"machines": [_PUSH_PC]}}
+    ms = bc.prep_context(NOW, _cache_with_push(9999), cfg)["device"]["machines"]
+    assert [m["name"] for m in ms] == []
+
+
+def test_fresh_push_device_shown():
+    """刚上报过的 push 设备正常显示。"""
+    cfg = {"devices": {"machines": [_PUSH_PC]}}
+    ms = bc.prep_context(NOW, _cache_with_push(1), cfg)["device"]["machines"]
+    assert [m["name"] for m in ms] == ["win-pc"]
+
+
+def test_local_device_not_time_filtered():
+    """local/ssh 直采设备无 updated_at,不参与离线过滤(采集器在跑就常驻)。"""
+    cfg = {"devices": {"machines": [{"id": "nas-01", "name": "nas-01", "mode": "local"}]}}
+    ms = bc.prep_context(NOW, _mock_cache(), cfg)["device"]["machines"]
+    assert [m["name"] for m in ms] == ["nas-01"]
+
+
+def test_offline_after_configurable():
+    """offline_after 可配:调小后较早的上报即算离线。"""
+    cache = _cache_with_push(100)                      # 100s 前上报
+    assert bc.prep_context(NOW, cache,                 # 默认 180s 内 → 显示
+                           {"devices": {"machines": [_PUSH_PC]}})["device"]["machines"]
+    cfg = {"devices": {"machines": [_PUSH_PC], "offline_after": 60}}
+    assert bc.prep_context(NOW, cache, cfg)["device"]["machines"] == []
+
+
 def test_battery():
     ctx = bc.prep_context(NOW, _mock_cache())
     assert ctx["battery"]["level"] == 87 and ctx["battery"]["has"] is True

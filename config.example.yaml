@@ -81,6 +81,7 @@ ha_page:
 devices:
   machines: []
   interval: 30               # 服务端采集间隔(秒;本机直读/SSH拉)。push 设备的上报间隔由目标机 agent 自己定
+  offline_after: 180         # push 设备超过这么久没上报就判离线、从看板撤下(目标机关机/断网自动消失)。本机直读/SSH 不受影响
   # 示例(去掉注释填进 machines):
   #   - name: 这台Mac
   #     mode: local           # 本机直读,既不装 agent 也不用 SSH

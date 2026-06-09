@@ -411,6 +411,9 @@ def prep_context(now, cache, cfg=None):
     # 配置 cfg.devices.machines 提供显示名(可自定义)与字段勾选;未配置的 push 设备自动采纳(默认用 hostname)。
     devices_cfg = ((cfg or {}).get("devices", {}) or {}).get("machines", []) or []
     metrics_map = cache.get("devices_metrics") or {}
+    # push 设备超时未上报视为离线(agent 关机/断网后最多 offline_after 秒从看板消失);
+    # local/ssh 直采设备不带 updated_at,不参与时间过滤,服务端采集器在跑就常驻。
+    offline_after = ((cfg or {}).get("devices", {}) or {}).get("offline_after", 180)
     machines = []
     seen = set()
     for mc in devices_cfg:
@@ -421,6 +424,9 @@ def prep_context(now, cache, cfg=None):
             raw = metrics_map.get(key)
         if raw is None:
             continue
+        ua = raw.get("updated_at")
+        if ua and (time.time() - ua) > offline_after:
+            continue                     # push 设备离线(关机/断网):不上看板
         one = dev(raw, mc.get("fields"))
         if one:
             one["name"] = (mc.get("name") or key)

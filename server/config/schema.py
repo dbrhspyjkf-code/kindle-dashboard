@@ -277,6 +277,14 @@ SCHEMA: list = [
             Field("interval", "采集间隔(秒)", "int", 30,
                   help="服务端多久采一次设备指标(本机直读 / SSH 拉)。想更实时就调小。"
                        "注:push 设备的上报间隔由目标机 agent 自己定,不受此值控制。"),
+            Field("offline_after", "离线判定(秒)", "int", 180,
+                  help="push 设备超过这么久没上报就判离线、从看板撤下(目标机关机/断网后自动消失)。"
+                       "建议 ≥ agent 上报间隔的 3 倍,避免偶发丢一两次就误判。本机直读/SSH 拉的设备不受影响。",
+                  label_en="Offline after (s)",
+                  help_en="A push device with no report for this many seconds is treated as offline and "
+                          "dropped from the dashboard (so it disappears after the machine powers off / "
+                          "drops network). Use >= 3x the agent's report interval to avoid false positives "
+                          "from an occasional missed report. Local/SSH devices are unaffected."),
         ],
     ),
 

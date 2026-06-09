@@ -154,7 +154,9 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
         if scale <= 0:
             scale = 1.0
         cmd = [
-            chrome, "--headless", "--no-sandbox", "--disable-gpu",
+            # --headless=new(不是旧版 --headless):旧无头模式在 macOS 上仍会初始化 AppKit,
+            # 每轮渲染(默认每 30s)新起的 Chrome 都会在 Dock 弹一下图标,很打扰。新无头模式不创建 Dock 图标。
+            chrome, "--headless=new", "--no-sandbox", "--disable-gpu",
             "--no-crashpad", "--disable-crash-reporter",
             "--disable-dev-shm-usage", "--hide-scrollbars",
             # 防首启卡顿/后台网络等待(全新 user-data-dir 否则会触发首启流程,在弱机上可拖到超时)
