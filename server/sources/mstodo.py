@@ -123,9 +123,33 @@ def _ensure_access_token(cfg):
         return tok["access_token"]
 
 
+def _due_iso(dd):
+    """微软 dueDateTime → 规范化 ISO:截断 7 位小数到 6 位 + 给 UTC 补时区标记。
+    微软默认返回 UTC(timeZone='UTC')。原来只取 dateTime 字符串、丢了时区,下游 reminder_due_date
+    又当本地时间取日期 → 傍晚后到期(UTC 日期比北京早一天)的任务被算早一天、误判过期、从"今天/即将"
+    区消失。补上 UTC 标记后,交由 reminder_due_date 按看板时区换算到正确的本地日。"""
+    s = ((dd or {}).get("dateTime") or "").strip()
+    if not s:
+        return None
+    tz = ((dd or {}).get("timeZone") or "UTC").upper()
+    if "." in s:                      # 微软给 7 位小数,Python datetime 只认到微秒 6 位,多了会解析失败
+        head, frac = s.split(".", 1)
+        digits = ""
+        for ch in frac:
+            if ch.isdigit():
+                digits += ch
+            else:
+                break
+        s = head + "." + digits[:6] + frac[len(digits):]
+    tail = s[11:]                     # T 之后的时间部分
+    if tz == "UTC" and "Z" not in tail and "+" not in tail and "-" not in tail:
+        s += "+00:00"                 # 标记 UTC,下游按看板时区换算到本地日
+    return s
+
+
 def _normalize(t, lst):
     """归一化为和苹果提醒相同的字段(下游零改动)。"""
-    due = (t.get("dueDateTime") or {}).get("dateTime") or ""
+    due = _due_iso(t.get("dueDateTime"))
     return {
         "title": t.get("title", ""),
         "completed": t.get("status") == "completed",

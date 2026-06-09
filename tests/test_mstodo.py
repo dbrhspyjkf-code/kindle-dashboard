@@ -194,3 +194,28 @@ def test_token_explicit_override_wins():
     # KINDLE_MSTODO_TOKEN 显式指定仍优先(向后兼容)
     assert _token_path_with_env(KINDLE_DATA_DIR="/tmp/kd-x",
                                 KINDLE_MSTODO_TOKEN="/custom/tok.json") == "/custom/tok.json"
+
+
+# ---------- 时区:微软 dueDateTime 是 UTC,不能当本地时间直接取日期 ----------
+def _local_day(due):
+    from server.render.build_context import reminder_due_date
+    from datetime import timezone, timedelta
+    return reminder_due_date(due, timezone(timedelta(hours=8))).isoformat()
+
+
+def test_utc_due_evening_not_counted_a_day_early():
+    """北京 6-09 00:00 截止 = UTC 6-08T16:00:应算 6-09,不能算成 6-08 提前过期。"""
+    r = mstodo._normalize(
+        {"title": "x", "status": "notStarted",
+         "dueDateTime": {"dateTime": "2026-06-08T16:00:00.0000000", "timeZone": "UTC"}},
+        {"displayName": "L", "id": "L1"})
+    assert _local_day(r["dueDate"]) == "2026-06-09"
+
+
+def test_utc_due_daytime_stays_same_day():
+    """UTC 日期与北京同日的不受影响。"""
+    r = mstodo._normalize(
+        {"title": "x", "status": "notStarted",
+         "dueDateTime": {"dateTime": "2026-06-10T02:00:00.0000000", "timeZone": "UTC"}},
+        {"displayName": "L", "id": "L1"})
+    assert _local_day(r["dueDate"]) == "2026-06-10"   # UTC 02:00 = 北京 10:00
