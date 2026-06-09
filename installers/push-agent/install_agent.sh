@@ -10,7 +10,30 @@
 # 目标机在看板设置页「设备监控」会自动出现(以 hostname 为标识),可在那里改名、选指标。
 set -e
 
-AGENT_DIR="$HOME/.kindle-dash-agent"
+# agent 安装目录:优先 KDASH_AGENT_DIR 显式指定;否则挑第一个可写的持久目录。
+# 起因:飞牛/群晖/威联通等 NAS 的 SSH 账号家目录常不在 /home(甚至根本没建),
+# 直接用 $HOME/.kindle-dash-agent 会因 /home 归 root 不可写而 mkdir 失败(Permission denied)。
+_try_dir() {   # $1=base;base 须已存在(不替用户创建家目录/卷根),其下能放 agent 则打印安装目录、返回 0
+  [ -n "$1" ] && [ -d "$1" ] || return 1
+  _d="$1/.kindle-dash-agent"
+  if [ -d "$_d" ] && [ -w "$_d" ]; then printf '%s' "$_d"; return 0; fi
+  mkdir -p "$_d" 2>/dev/null || return 1
+  [ -w "$_d" ] || return 1
+  printf '%s' "$_d"
+}
+resolve_agent_dir() {
+  [ -n "$KDASH_AGENT_DIR" ] && { printf '%s' "$KDASH_AGENT_DIR"; return 0; }
+  _uid=$(id -u 2>/dev/null) || _uid=
+  _usr=$(id -un 2>/dev/null) || _usr=
+  if _try_dir "$HOME"; then return 0; fi
+  if _try_dir "$XDG_DATA_HOME"; then return 0; fi
+  if [ -n "$_uid" ] && _try_dir "/vol1/$_uid"; then return 0; fi           # 飞牛 fnOS:用户空间在 /vol1/<uid>
+  if [ -n "$_usr" ] && _try_dir "/volume1/homes/$_usr"; then return 0; fi  # 群晖 DSM
+  if [ -n "$_usr" ] && _try_dir "/share/homes/$_usr"; then return 0; fi    # 威联通 QTS
+  if [ -n "$_usr" ] && _try_dir "/vol1/homes/$_usr"; then return 0; fi
+  return 1
+}
+AGENT_DIR="$(resolve_agent_dir || true)"
 LABEL="com.kindle-dashboard.agent"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 CRON_TAG="# kindle-dash-agent"
@@ -36,10 +59,12 @@ uninstall() {
   if command -v crontab >/dev/null 2>&1; then
     crontab -l 2>/dev/null | grep -v "$CRON_TAG" | crontab - 2>/dev/null || true
   fi
-  rm -rf "$AGENT_DIR"
-  echo "✓ 已卸载:停止上报、清开机自启、删除 $AGENT_DIR。看板设置页那台设备会随之不再更新。"
+  [ -n "$AGENT_DIR" ] && rm -rf "$AGENT_DIR"
+  echo "✓ 已卸载:停止上报、清开机自启、删除 ${AGENT_DIR:-(无)}。看板设置页那台设备会随之不再更新。"
 }
 
+# 内部:打印解析出的安装目录(供安装器自测用,非公开用法)
+[ "$1" = "resolve-dir" ] && { printf '%s' "$AGENT_DIR"; exit 0; }
 [ "$1" = "uninstall" ] && { uninstall; exit 0; }
 
 URL="$1"
@@ -60,6 +85,14 @@ case "$(uname -s)" in
 esac
 
 command -v curl >/dev/null 2>&1 || { echo "✗ 需要 curl,请先安装(NAS 一般自带;或用 wget 改装)"; exit 1; }
+
+if [ -z "$AGENT_DIR" ]; then
+  echo "✗ 找不到可写的安装目录:家目录 \$HOME=${HOME:-(空)} 不可写。"
+  echo "  常见于飞牛/群晖/威联通等 NAS 的 SSH 账号——家目录不在 /home 或根本没建。"
+  echo "  解决:指定一个你有写权限的持久目录后重装(把路径换成你 NAS 上的用户空间),例如:"
+  echo "    curl -fsSL $URL/agent/install.sh | KDASH_AGENT_DIR=/vol1/$(id -u 2>/dev/null)/.kindle-dash-agent sh -s -- $URL ${INTERVAL}"
+  exit 1
+fi
 
 echo "==> 安装到 $AGENT_DIR(系统 =$PLATFORM,间隔 =${INTERVAL}s,标识 =$ID)..."
 stop_running
