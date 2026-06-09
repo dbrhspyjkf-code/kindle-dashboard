@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
 {{ css|safe }}
-.grid{display:flex;flex-wrap:wrap;gap:14px;align-content:flex-start;height:100%;overflow:hidden;}
-.card{flex:1 1 320px;min-width:300px;border:1.5px solid var(--ink);padding:12px 14px;display:flex;flex-direction:column;}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-content:start;height:100%;overflow:hidden;}
+.card{flex:1 1 0;min-width:0;border:1.5px solid var(--ink);padding:12px 14px;display:flex;flex-direction:column;}
 .chead{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed var(--ink3);padding-bottom:7px;margin-bottom:10px;}
 .chead .nm{font-size:19px;font-weight:700;letter-spacing:-0.5px;}
 .chead .st{font-size:11px;color:var(--ink3);}

@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
 {{ css|safe }}
-.grid{flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:12px;align-content:flex-start;overflow:hidden;}
-.dev{flex:1 1 350px;min-width:330px;}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;align-content:start;overflow:hidden;}
+.dev{flex:1 1 0;min-width:0;}
 .dhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
 .dhead .nm{font-size:19px;font-weight:800;letter-spacing:-0.5px;}
 .dhead .st{font-size:10px;color:var(--ink3);font-weight:700;letter-spacing:0.5px;}

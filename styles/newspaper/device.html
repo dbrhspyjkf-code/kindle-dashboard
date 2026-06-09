@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
 {{ css|safe }}
-.grid{flex:1;min-height:0;display:flex;flex-wrap:wrap;gap:0;align-content:flex-start;overflow:hidden;}
-.dev{flex:1 1 360px;min-width:330px;padding:0 18px;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
+.grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0 28px;align-content:start;overflow:hidden;}
+.dev{flex:1 1 0;min-width:0;padding:0 18px;display:flex;flex-direction:column;min-width:0;overflow:hidden;}
 .dev:nth-child(odd){padding-left:0;}
 .dev:nth-child(even){border-left:1px solid var(--line2);padding-right:0;}
 .dhead{display:flex;justify-content:space-between;align-items:baseline;

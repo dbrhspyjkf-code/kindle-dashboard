@@ -1,8 +1,10 @@
 <!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
 {{ css|safe }}
 /* 设备页:动态遍历 N 台机器,自适应 1-N 台。朴素通用版,精美风格见 P2。 */
-.dev-grid{display:flex;flex-wrap:wrap;gap:16px 28px;}
-.dev-card{flex:1 1 300px;min-width:270px;}
+/* 自适应网格:按设备数自动分列(2台两列/3-4台两到三列多行),每台保持可读宽度。
+   关键:不用 flex-wrap 纵向堆叠(高的设备会把矮的挤出墨水屏);grid 各格独立、整齐对齐。 */
+.dev-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px 24px;align-content:start;}
+.dev-card{min-width:0;overflow:hidden;}
 .dev-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
 .dev-head .nm{font-size:22px;font-weight:800;}
 .dev-head .st{font-size:12px;color:var(--ink3);font-weight:600;}
