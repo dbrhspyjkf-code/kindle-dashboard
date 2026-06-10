@@ -50,6 +50,21 @@ ensure_wifi() {
     lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
 }
 
+# SSH 开机自启(2026-06-09):看板会杀掉系统界面独占屏幕,USB/SSH 也跟着关 → 看板占屏时
+# 没法远程刷/排错,形成"重启后连不上"的死结。这里在看板启动时顺带拉起 dropbear(SSH 服务,
+# 监听 22;WiFi 连上即可远程 SSH,USB 网络模式也可)。只要看板在跑 SSH 就一直开着,以后不管
+# Kindle 怎么重启,都能一行命令远程刷。dropbear -R 自动生成临时 host key;install 用
+# StrictHostKeyChecking=no,host key 变化不影响。
+start_ssh() {
+    { pidof dropbear || pidof dropbearmulti; } >/dev/null 2>&1 && return 0   # 已在跑就不重复起
+    for d in /usr/sbin/dropbear /usr/bin/dropbear; do
+        [ -x "$d" ] && { "$d" -R -p 22 >/dev/null 2>&1; return 0; }
+    done
+    # 越狱 USBNetwork 插件自带的多合一二进制(KT3 等常见)
+    DM=/mnt/us/usbnet/bin/dropbearmulti
+    [ -x "$DM" ] && "$DM" dropbear -R -p 22 >/dev/null 2>&1
+}
+
 # 杀旧实例
 if [ -f "$PIDFILE" ]; then
     kill $(cat "$PIDFILE") 2>/dev/null
@@ -65,8 +80,9 @@ for p in cvm awesome blanket lxinit KPPMainApp pillowd JunoStatusBarDriver kfxre
     kill $(pidof $p) 2>/dev/null
 done
 sleep 2
-# 3. 防休眠
+# 3. 防休眠 + 开机自启 SSH(看板占屏时也能远程刷,免去"重启后连不上")
 lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
+start_ssh
 # 4. 首屏
 ensure_wifi
 report_battery
