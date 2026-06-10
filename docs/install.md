@@ -124,8 +124,10 @@ powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一
 >
 > **两种连法(设置页「服务」卡的刷机框有 Kindle IP 输入框,填好自动拼好完整命令)**:
 > - **方式一 USB**(默认 `192.168.15.244`):Kindle 插电脑。⚠️ 前提两关——① Kindle 上**先开 USBNetwork**(KUAL;**它一重启就关、默认是 U 盘存储模式**,Windows 会把它认成磁盘而非网卡)② Windows 把 Kindle 认成『网络适配器/RNDIS』(认成未知设备就到设备管理器装『远程 NDIS 兼容设备』驱动)。这两关是越狱 Kindle 插 Windows 的固有门槛。
-> - **方式二 WiFi(推荐,免装驱动)**:Kindle 连 WiFi → 路由器后台查到它的 IP → 填进刷机框(或 `-KindleIp <IP>`)。脚本检测到非 `.244` 就**跳过 USB 配置、直接走 WiFi SSH**,Win/Mac/Linux 完全一样,不碰 RNDIS 驱动。**仍需 Kindle 开着 SSH(USBNetwork 的 dropbear 在 WiFi 上也听)。**
-> - ⚠️ 真机验证状态:`.ps1` 编码/网卡还原已验;完整刷机流程因 USBNetwork 模式问题待续验。
+> - **方式二 WiFi(推荐,免装驱动)**:Kindle 连 WiFi → 路由器后台查到它的 IP → 填进刷机框(或 `-KindleIp <IP>`)。脚本检测到非 `.244` 就**跳过 USB 配置、直接走 WiFi SSH**,Win/Mac/Linux 完全一样,不碰 RNDIS 驱动。
+> - **SSH 前提 / 自启**:**首次**刷机时 Kindle 需先开着 SSH(USBNetwork 的 dropbear,WiFi/USB 都听)。装上看板后 `start.sh` 会**自启 dropbear**——以后看板跑着 SSH 就常开,远程刷一条命令直连,不用每次重开。
+> - **抢开机窗口刷**:看板占屏会把系统界面连同 SSH 一起杀掉(见故障排查),但 Kindle **重启的开机瞬间** SSH 是通的。`install.sh --wait <KindleIP> <URL> [间隔]` 会每 5 秒探一次、SSH 就绪即自动刷——先跑上它,再去重启 Kindle 即可抓住窗口。
+> - ✅ 真机验证状态(2026-06-09):USB/WiFi 刷机、`--wait` 抓窗口、SSH 自启均真机通过。
 
 `install.sh` 会推送 `start.sh`/`stop.sh`、写服务地址到 `/mnt/us/dashboard.conf`、加 `@reboot` 自启(带 `# kindle-dashboard` 标记便于卸载精确移除)、启动显示。
 
@@ -155,6 +157,8 @@ powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一
 | 渲染失败/白屏 | 确认装了 Chrome/Chromium;或设 `CHROME_BIN` 指向可执行文件 |
 | 中文显示成方块 | 装中文字体(Linux:`fonts-noto-cjk`;Mac 自带苹方,一般无需) |
 | 连不上 Kindle | 跑 `detect.sh`;确认越狱+USBNetwork+数据线;默认 IP `192.168.15.244`。Windows 上把 Kindle 认成磁盘=USBNetwork 没开(在 Kindle 上开)或缺 RNDIS 驱动;也可改走 WiFi(填 Kindle 的 WiFi IP) |
+| **看板运行中连不上(SSH refused / 插 USB 不进 U 盘 / `detect.sh` 看不到设备)** | 看板占屏会把系统界面连同 USB gadget、SSH 一起关掉,所以**运行中**连不上属正常(不是线/Mac 的问题)。装了新版(`start.sh` 自启 dropbear)后看板跑着 SSH 仍常开;若 Kindle 还是旧版,用 `install.sh --wait` 抓**重启开机窗口**刷上新版,或走逃生舱 |
+| Kindle/路由器重启后看板停在旧画面 | 新版 `start.sh` 有 WiFi 自愈(`ensure_wifi` 关开无线、强制重新 DHCP 拿 IP),通常自动恢复;没恢复就**长按电源重启 Kindle**(系统重连 WiFi 即恢复)。旧版无自愈,装新版根治 |
 | **看板占屏又连不上 Kindle(像变砖)** | 🛟 逃生舱:把 Kindle 插任意电脑(默认 U 盘模式,**不需要 USBNetwork/WiFi**),在盘根目录新建空文件 `dashboard.off`,重启 Kindle 即回正常界面;删掉该文件恢复看板。`start.sh` 开机先查这个文件 |
 | Kindle 不刷屏 | 缺 `fbink`,通过 KUAL/越狱工具安装 |
 | Kindle 时间冻结(Docker) | compose 加 `init: true`(已内建);本机直跑无此问题 |
