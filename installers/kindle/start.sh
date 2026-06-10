@@ -32,14 +32,21 @@ report_battery() {
 }
 
 ensure_wifi() {
-    state=$(timeout 5 wpa_cli status 2>/dev/null | grep 'wpa_state=' | cut -d= -f2)
-    if [ "$state" != "COMPLETED" ]; then
-        timeout 5 lipc-set-prop com.lab126.cmd wirelessEnable 1 2>/dev/null
-        timeout 5 wpa_cli reconnect 2>/dev/null
+    # 完整重连,确保拿到【有效 IP】(不只是 WiFi 关联)。
+    # 关键(2026-06-09 真机):路由器重启后 wpa_state 常已是 COMPLETED,但 DHCP 租约失效、IP 没刷新,
+    # 光 `wpa_cli reconnect` 不会重新 DHCP → Kindle 有关联却没有效 IP、一直拉不到图、停在旧画面。
+    # 解法:关无线→开无线,让系统走【完整重连流程(含重新 DHCP)】。被调用时(首屏 / 主循环连续失败)一律执行。
+    timeout 8 lipc-set-prop com.lab126.cmd wirelessEnable 0 2>/dev/null
+    sleep 3
+    timeout 8 lipc-set-prop com.lab126.cmd wirelessEnable 1 2>/dev/null
+    i=0
+    while [ $i -lt 6 ]; do                       # 最多等 ~30s 直到重新关联(含 DHCP 拿 IP)
         sleep 5
         state=$(timeout 5 wpa_cli status 2>/dev/null | grep 'wpa_state=' | cut -d= -f2)
-        [ "$state" != "COMPLETED" ] && sleep 10
-    fi
+        [ "$state" = "COMPLETED" ] && break
+        timeout 5 wpa_cli reassociate 2>/dev/null   # 关联卡住时再推一把(reassociate 比 reconnect 彻底)
+        i=$((i + 1))
+    done
     lipc-set-prop com.lab126.powerd preventScreenSaver 1 2>/dev/null
 }
 
