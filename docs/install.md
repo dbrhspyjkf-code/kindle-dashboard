@@ -163,6 +163,7 @@ powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一
 | Kindle 不刷屏 | 缺 `fbink`,通过 KUAL/越狱工具安装 |
 | Kindle 时间冻结(Docker) | compose 加 `init: true`(已内建);本机直跑无此问题 |
 | 设备页空 | 确认机器已配置且采集成功;push 设备需 agent 已上报 |
+| Mac 存储比"关于本机→储存"略小几 G | 正常。macOS 是 APFS、一块盘多卷共享空间,看板取数据卷的实际 Used(与系统口径一致);系统还会额外扣掉「可清除空间」(TimeMachine 本地快照/缓存等),那个精确值 `df` 命令拿不到,所以可能差几 G。(若显示成 ~12G 那是读错卷的老 bug,升级到最新即修) |
 
 ## 五、验证状态(诚实清单)
 
