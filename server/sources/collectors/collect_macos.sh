@@ -27,13 +27,17 @@ set -- $(read_net); rx2=$1; tx2=$2
 nrx=$(( (rx2 - rx1) / SLEEP )); [ "$nrx" -lt 0 ] && nrx=0
 ntx=$(( (tx2 - tx1) / SLEEP )); [ "$ntx" -lt 0 ] && ntx=0
 
-# 分区:仅真实 /dev/ 卷
-disks=$(df -k 2>/dev/null | awk '
-  $1 ~ /^\/dev\// && $2+0>0 {
-    used=$3*1024; total=$2*1024; pct=$5; gsub(/%/,"",pct);
-    name=$9; for(i=10;i<=NF;i++) name=name" "$i;
-    if (n++) printf ",";
-    printf "{\"name\":\"%s\",\"used\":%.0f,\"total\":%.0f,\"pct\":%d}", name, used, total, pct
+# 分区(macOS APFS):一块物理盘被切成多个共享同一容器的卷(只读系统卷 / 数据卷 / VM /
+# Preboot…),df 里每个卷的 Used 只是该卷自己的——直接列会把"总存储"读成只读系统卷的 ~12G、
+# 严重偏低,还混进 VM/Preboot/外接盘/网络盘/TimeMachine 快照一堆噪音。
+# 正解:只取数据卷(/System/Volumes/Data;老系统回退 /)作主存储,
+#   容量 = 容器大小($2),真实已用 = 容量 − 可用($2-$4)(才反映整盘所有卷的合计占用)。
+dline=$(df -k /System/Volumes/Data 2>/dev/null | awk 'NR==2{print; exit}')
+[ -z "$dline" ] && dline=$(df -k / 2>/dev/null | awk 'NR==2{print; exit}')
+disks=$(echo "$dline" | awk '$2+0>0 {
+    total=$2*1024; avail=$4*1024; used=total-avail; if(used<0)used=0;
+    pct=int(used*100/total+0.5);
+    printf "{\"name\":\"/\",\"used\":%.0f,\"total\":%.0f,\"pct\":%d}", used, total, pct
   }')
 
 printf '{"cpu_pct":%d,"mem_used":%s,"mem_total":%s,"net_rx":%d,"net_tx":%d,"disk_read":0,"disk_write":0,"disks":[%s]}\n' \
