@@ -7,6 +7,10 @@
 #   INTERVAL    Kindle 拉图刷新间隔(秒);不给则交互询问,非交互默认 20
 set -e
 KDIR="$(cd "$(dirname "$0")" && pwd)"
+# --wait:循环等 Kindle SSH(22)就绪再刷,用来"抓开机/重连那一刻的窗口"
+# (看板占屏会把 SSH 关掉,但 Kindle 重启的开机瞬间 SSH 是通的——这个模式守在那里自动抓住)。
+WAIT=""
+[ "$1" = "--wait" ] && { WAIT=1; shift; }
 KINDLE_IP="${1:-192.168.15.244}"
 SERVER_URL="$2"
 INTERVAL="$3"
@@ -83,6 +87,15 @@ CP="/tmp/kindle-ctl-%r@%h:%p"
 SSHOPT="-o StrictHostKeyChecking=no -o ControlMaster=auto -o ControlPath=$CP -o ControlPersist=120"
 echo "提示:接下来会要求输入 Kindle 的 root 密码(越狱后的 SSH 密码)。"
 echo "      越狱包常见默认密码是 mario;若你改过,请用你设的密码。"
+if [ -n "$WAIT" ]; then
+  echo "==> 等待模式:每 5 秒探测 Kindle SSH(22),就绪即自动开刷。"
+  echo "    现在去【重启 Kindle】——开机那一刻 SSH 一通,这里就抓到并开始刷。(Ctrl-C 取消)"
+  while ! { nc -z -G 3 "$KINDLE_IP" 22 2>/dev/null || nc -z -w 3 "$KINDLE_IP" 22 2>/dev/null; }; do
+    printf "\r    %s 等 Kindle SSH 就绪…  " "$(date +%H:%M:%S)"
+    sleep 5
+  done
+  echo ""; echo "   ✓ Kindle SSH 就绪,开始刷入(接下来输一次密码 mario)"
+fi
 ssh $SSHOPT root@"$KINDLE_IP" "echo connected" || { echo "✗ 无法 SSH 到 Kindle,先跑 detect.sh 排查"; exit 1; }
 
 echo "==> 备份旧版(若有)..."
