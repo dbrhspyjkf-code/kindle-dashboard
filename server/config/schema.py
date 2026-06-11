@@ -185,11 +185,15 @@ SCHEMA: list = [
         fields=[
             Field("enabled", "启用", "bool", False),
             Field("quota_show", "额度面板显示", "enum", "both",
-                  options=[("both", "Claude + Codex"), ("claude", "只显示 Claude"), ("codex", "只显示 Codex")],
-                  help="AI 页左侧『额度用量』(5h/周百分比+刷新倒计时)显示哪一个。"
-                       "只用 Claude 或只用 Codex 时可隐藏另一个;不影响下方 token 统计与趋势图。",
-                  label_en="Quota panel", help_en="Which quota block to show on the AI page left column "
-                       "(5h/week % + reset countdown). Hide the unused one; does not affect token stats / trend chart."),
+                  options=[("both", "Claude + Codex"), ("claude", "只显示 Claude"),
+                           ("codex", "只显示 Codex"), ("none", "都不显示(仅 Token/花费)")],
+                  help="AI 页『额度用量』(5h/周百分比+刷新倒计时)显示哪一个。"
+                       "只用 Claude/Codex 时隐藏另一个;用中转站、无官方额度选「都不显示」——"
+                       "页面自动收成趋势图为主+花费。均不影响 token 统计与趋势图采集。",
+                  label_en="Quota panel", help_en="Which quota block to show on the AI page "
+                       "(5h/week % + reset countdown). Hide the unused one, or pick 'none' (relay users with "
+                       "no official quota) to collapse the page to a chart-first + cost layout. "
+                       "Never affects token stats / trend chart collection."),
             Field("claude_rate", "Claude 价格倍率", "float", 1.0,
                   help="Claude 官方价 × 此倍率 = 自定义花费(中转站对账用)。默认 1.0=按官方价。"),
             Field("codex_rate", "Codex 价格倍率", "float", 1.0,
@@ -433,6 +437,7 @@ OPTION_LABELS_EN = {
     "auto": "Auto-detect", "linux": "Linux", "macos": "macOS", "windows": "Windows",
     "fixed": "Fixed one", "daily_random": "Daily random",
     "both": "Claude + Codex", "claude": "Claude only", "codex": "Codex only",
+    "none": "None (tokens/cost only)",
 }
 
 
