@@ -19,25 +19,35 @@
 .cost-bottom{border-top:2px solid var(--ink);padding-top:12px;margin-top:auto;}
 .cost-row{display:flex;align-items:flex-end;justify-content:space-between;}
 .cost-row .lbl{font-size:13px;color:var(--ink3);font-weight:600;letter-spacing:1px;}
+/* 无额度(none)模式:趋势图当主角 + 底部信息带 */
+.col-full{flex:1;min-width:0;display:flex;flex-direction:column;}
+.info-band{border-top:2px solid var(--ink);padding-top:12px;margin-top:14px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;}
+.info-band .toks{display:flex;gap:28px;}
+.info-band .toks .c .label-sm{margin-bottom:4px;}
+.info-band .toks .c .v{font-size:26px;font-weight:800;}
+.info-band .costs{text-align:right;flex-shrink:0;}
+.info-band .costs .cost-row{justify-content:flex-end;gap:10px;}
+.info-band .costs .cost-row + .cost-row{margin-top:4px;}
 </style></head><body>
 <div class="masthead">
   <div><div class="kicker">{{ t.ai_kicker }}</div><div class="title">{{ t.ai_title }}</div></div>
   <div class="meta">{{ now }}</div>
 </div>
 <div class="main">
+{% if ai.show_quota_panel %}
   <div class="col col-l">
     <div>
-      <div class="section-label">{{ t.ai_claude_quota }}</div>
+      {% if ai.show_cc_quota %}<div class="section-label">{{ t.ai_claude_quota }}</div>
       <div class="quota"><div class="top"><span class="qname">{{ t.ai_five_hour }}</span><span class="qright"><span class="qpct tnum">{{ ai.five_pct }}%</span><span class="qreset">{{ ai.five_reset }}</span></span></div>
         <div class="bar"><i style="width:{{ ai.five_pct }}%"></i></div></div>
       <div class="quota"><div class="top"><span class="qname">{{ t.ai_week }}</span><span class="qright"><span class="qpct tnum">{{ ai.week_pct }}%</span><span class="qreset">{{ ai.week_reset }}</span></span></div>
-        <div class="bar"><i style="width:{{ ai.week_pct }}%"></i></div></div>
-      <div class="rule"></div>
-      <div class="section-label">{{ t.ai_codex_quota }}</div>
+        <div class="bar"><i style="width:{{ ai.week_pct }}%"></i></div></div>{% endif %}
+      {% if ai.show_cc_quota and ai.show_cx_quota %}<div class="rule"></div>{% endif %}
+      {% if ai.show_cx_quota %}<div class="section-label">{{ t.ai_codex_quota }}</div>
       <div class="quota"><div class="top"><span class="qname">{{ t.ai_five_hour }}</span><span class="qright"><span class="qpct tnum">{{ ai.cx_five_pct }}%</span><span class="qreset">{{ ai.cx_five_reset }}</span></span></div>
         <div class="bar"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
       <div class="quota"><div class="top"><span class="qname">{{ t.ai_week }}</span><span class="qright"><span class="qpct tnum">{{ ai.cx_week_pct }}%</span><span class="qreset">{{ ai.cx_week_reset }}</span></span></div>
-        <div class="bar"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+        <div class="bar"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>{% endif %}
     </div>
     <div class="cost-bottom">
       <div class="cost-row"><span class="lbl">{{ t.ai_today_official }}</span><span class="stat-big tnum">{{ ai.today_cost }}</span></div>
@@ -61,6 +71,28 @@
       <div class="legend" style="margin-top:8px;"><span><i class="hatch-dense"></i>Claude Code</span><span><i class="hatch-sparse"></i>Codex</span></div>
     </div>
   </div>
+{% else %}
+  <div class="col col-full">
+    <div class="section-label">{{ t.ai_trend_7d }}</div>
+    <div class="chart-wrap">
+      <div class="chart">
+      {% for c in ai.chart %}<div class="col"><div class="v tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="seg-b" style="flex:{{ c.cx_h }}"></div><div class="seg-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+      </div>
+      <div class="legend" style="margin-top:8px;"><span><i class="hatch-dense"></i>Claude Code</span><span><i class="hatch-sparse"></i>Codex</span></div>
+    </div>
+    <div class="info-band">
+      <div class="toks">
+        <div class="c"><div class="label-sm">{{ t.ai_last_7d }}</div><div class="v tnum">{{ ai.tok_7d }}</div></div>
+        <div class="c"><div class="label-sm">{{ t.ai_last_30d }}</div><div class="v tnum">{{ ai.tok_30d }}</div></div>
+        <div class="c"><div class="label-sm">{{ t.ai_total }}</div><div class="v tnum">{{ ai.tok_all }}</div></div>
+      </div>
+      <div class="costs">
+        <div class="cost-row"><span class="lbl">{{ t.ai_today_official }}</span><span class="stat-big tnum">{{ ai.today_cost }}</span></div>
+        {% if ai.custom_total %}<div class="cost-row"><span class="lbl">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="stat-med tnum">{{ ai.custom_total }}</span></div>{% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}
 </div>
 <div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span><span>2 / 5</span></div>
 </body></html>

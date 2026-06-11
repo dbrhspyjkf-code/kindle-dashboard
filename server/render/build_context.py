@@ -364,6 +364,12 @@ def prep_context(now, cache, cfg=None):
     # 自定义价:今日官方价 × 倍率(Claude/Codex 各一档,中转站对账用)。
     # 两档都=1.0 视为未配置,不显示自定义价(诚实降级,避免与官方价重复)。
     ai_cfg = (cfg or {}).get("ai_usage", {}) or {}
+    # 额度面板显示哪一个(both/claude/codex):只用一家时隐藏另一块,不影响 token 统计/趋势图。
+    quota_show = ai_cfg.get("quota_show") or "both"
+    ai["show_cc_quota"] = quota_show in ("both", "claude")
+    ai["show_cx_quota"] = quota_show in ("both", "codex")
+    # 整列额度面板是否显示;none(中转站用户)→ 页面收成"趋势图为主+花费"。
+    ai["show_quota_panel"] = ai["show_cc_quota"] or ai["show_cx_quota"]
     def _rate(key):
         try:
             return float(ai_cfg.get(key, 1.0))

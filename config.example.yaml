@@ -50,6 +50,7 @@ mstodo:
 # 安装时选「启用 AI 用量」会自动检测/安装 Node + ccusage 并把 enabled 置 true
 ai_usage:
   enabled: false
+  quota_show: both           # 额度面板显示:both=都显示 / claude=只Claude / codex=只Codex(纯显示,不影响采集)
   claude_rate: 1.0           # Claude 官方价 × 倍率 = 自定义花费,默认 1.0
   codex_rate: 1.0            # Codex 官方价 × 倍率,默认 1.0;两档都为 1 时不显示自定义价
   interval: 300              # 本机 ccusage 采集间隔(秒);解析日志约 10s,建议 ≥300

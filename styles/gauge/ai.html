@@ -18,16 +18,25 @@
 .chart .col .x{font-size:10px;color:var(--ink2);margin-top:4px;font-weight:700;}
 .legend{font-size:10px;color:var(--ink2);font-weight:600;display:flex;gap:14px;margin-top:7px;}
 .legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
+/* 无额度(none)模式:趋势图当主角 + 底部 token/花费带 */
+.col-full{flex:1;min-width:0;display:flex;flex-direction:column;}
+.band{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-top:12px;}
+.band .tok{flex:1;}
+.band .costs{flex-shrink:0;text-align:right;}
+.band .costs .row{display:flex;justify-content:flex-end;align-items:baseline;gap:10px;}
+.band .costs .row + .row{margin-top:5px;}
+.band .costs .row .l{font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:1px;}
 </style></head><body>
 <div class="cluster"><div class="ttl"><span class="chip">AI</span>{{ t.ai_title }}</div><div class="meta tnum">{{ now }}</div></div>
 <div class="main">
+{% if ai.show_quota_panel %}
   <div class="panel col-l">
-    <div class="plate">{{ t.ai_dial }}<span class="aux">Claude · Codex</span></div>
+    <div class="plate">{{ t.ai_dial }}<span class="aux">{% if ai.show_cc_quota %}Claude{% endif %}{% if ai.show_cc_quota and ai.show_cx_quota %} · {% endif %}{% if ai.show_cx_quota %}Codex{% endif %}</span></div>
     <div class="gz-grid">
-      {% set d = [ai.five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.five_pct }}%</div><div class="cap">{{ t.ai_cc_5h }}</div><div class="sub">{{ ai.five_reset }}</div></div>
-      {% set d = [ai.week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.week_pct }}%</div><div class="cap">{{ t.ai_cc_week }}</div><div class="sub">{{ ai.week_reset }}</div></div>
-      {% set d = [ai.cx_five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_five_pct }}%</div><div class="cap">{{ t.ai_cx_5h }}</div><div class="sub">{{ ai.cx_five_reset }}</div></div>
-      {% set d = [ai.cx_week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_week_pct }}%</div><div class="cap">{{ t.ai_cx_week }}</div><div class="sub">{{ ai.cx_week_reset }}</div></div>
+      {% if ai.show_cc_quota %}{% set d = [ai.five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.five_pct }}%</div><div class="cap">{{ t.ai_cc_5h }}</div><div class="sub">{{ ai.five_reset }}</div></div>
+      {% set d = [ai.week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.week_pct }}%</div><div class="cap">{{ t.ai_cc_week }}</div><div class="sub">{{ ai.week_reset }}</div></div>{% endif %}
+      {% if ai.show_cx_quota %}{% set d = [ai.cx_five_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_five_pct }}%</div><div class="cap">{{ t.ai_cx_5h }}</div><div class="sub">{{ ai.cx_five_reset }}</div></div>
+      {% set d = [ai.cx_week_pct,100]|min %}<div class="gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="7"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="7" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="16" stroke="#000" stroke-width="2.4" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.6" fill="#000"/></svg><div class="gv tnum">{{ ai.cx_week_pct }}%</div><div class="cap">{{ t.ai_cx_week }}</div><div class="sub">{{ ai.cx_week_reset }}</div></div>{% endif %}
     </div>
     <div class="cost">
       <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-hero tnum">{{ ai.today_cost }}</span></div>
@@ -49,6 +58,28 @@
       <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
     </div>
   </div>
+{% else %}
+  <div class="panel soft col-full">
+    <div class="plate">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="chart-wrap" style="margin-top:0;">
+      <div class="chart">
+      {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+      </div>
+      <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+    </div>
+    <div class="band">
+      <div class="tok">
+        <div class="c"><div class="l">{{ t.ai_7d }}</div><div class="n-lg tnum">{{ ai.tok_7d }}</div></div>
+        <div class="c"><div class="l">{{ t.ai_30d }}</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
+        <div class="c"><div class="l">{{ t.ai_all }}</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
+      </div>
+      <div class="costs">
+        <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-hero tnum">{{ ai.today_cost }}</span></div>
+        {% if ai.custom_total %}<div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-lg tnum">{{ ai.custom_total }}</span></div>{% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}
 </div>
 <div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.page_ai }} · 2/5</span></div>
 </body></html>

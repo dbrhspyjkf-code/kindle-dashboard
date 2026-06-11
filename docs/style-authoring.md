@@ -38,7 +38,7 @@ home.html  ai.html  device.html  ha.html  printer.html  style.css
 
 页面对应数据段:
 - **home**:`home.weather.*`(温度/天气/体感/湿度/风/今明温区)、`home.calendar`(月历周列表)、`home.reminders.{overdue,today,upcoming,total}`、农历干支节气
-- **ai**:Claude/Codex 的 `five_pct`/`week_pct` 配额、今日花费、`chart`(近7天柱状图)、token 统计
+- **ai**:Claude/Codex 的 `five_pct`/`week_pct` 配额、今日花费、`chart`(近7天柱状图)、token 统计。**额度面板必做自适应**:用 `{% if ai.show_cc_quota %}`/`{% if ai.show_cx_quota %}` 包各自额度块(只显示一家时隐藏另一块);再用 `{% if ai.show_quota_panel %}原双栏{% else %}趋势图为主+底部 token/花费带{% endif %}` 包整个 `.main`——`none`(中转站用户无官方额度)时整列额度消失、页面收成图表主角。7 套已实现可参考,**别让额度块"硬隐藏"留空洞**。
 - **printer**:打印状态/进度/层数/剩余时间/喷嘴热床温度等;整体可能为 None,需 `{% if printer %}` 保护
 - **device**:见下方(结构和老看板不同,重点看)
 - **ha**(智能家居实体墙,新增):`ha.cards` 数组,自适应瓦片;字段与做法见 `docs/data-contract.md` 的 `ha` 段;**本页有独立施工图 `docs/ha-page-styles-spec.md`(连样例数据脚本),做 ha 页以它为准**。`style_a/ha.html` 是已上线基准。

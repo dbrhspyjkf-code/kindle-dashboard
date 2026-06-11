@@ -18,19 +18,28 @@
 .chart .col .x{font-size:11px;color:var(--ink2);margin-top:5px;font-weight:700;}
 .legend{font-size:11px;color:var(--ink2);font-weight:600;display:flex;gap:16px;margin-top:9px;}
 .legend i{display:inline-block;width:14px;height:9px;margin-right:5px;vertical-align:middle;border-radius:2px;}
+/* 无额度(none)模式:趋势图卡当主角 + 底部 token/花费带 */
+.bento-none{grid-template-columns:1fr;grid-template-rows:1fr auto;}
+.band{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;}
+.band .toks{display:flex;gap:26px;}
+.band .toks .mini .l{font-size:10px;color:var(--ink3);font-weight:700;letter-spacing:1px;margin-bottom:3px;}
+.band .costs{text-align:right;flex-shrink:0;}
+.band .costs .cost-row{justify-content:flex-end;gap:10px;}
+.band .costs .cost-row + .cost-row{margin-top:4px;}
 </style></head><body>
 <div class="head"><div class="ttl">{{ t.ai_title }}</div><div class="meta tnum">{{ now }}</div></div>
-<div class="bento">
-  <div class="card c-cc">
+<div class="bento{% if not ai.show_quota_panel %} bento-none{% endif %}">
+{% if ai.show_quota_panel %}
+  {% if ai.show_cc_quota %}<div class="card c-cc">
     <div class="lab">{{ t.ai_claude_quota }}</div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_5h }}</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.five_pct }}%"></i></div></div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.week_pct }}%"></i></div></div>
-  </div>
-  <div class="card c-cx">
+  </div>{% endif %}
+  {% if ai.show_cx_quota %}<div class="card c-cx">
     <div class="lab">{{ t.ai_codex_quota }}</div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_5h }}</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
     <div class="barrow"><div class="kv"><span class="k">{{ t.ai_week }}</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="pill"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
-  </div>
+  </div>{% endif %}
   <div class="card hero c-cost">
     <div class="cost-row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
     <div class="cost-row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-md tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
@@ -52,6 +61,30 @@
       <div class="mini"><div class="l">{{ t.ai_all }}</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
     </div>
   </div>
+{% else %}
+  <div class="card">
+    <div class="lab">{{ t.ai_trend }}<span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+    <div class="chart-wrap">
+      <div class="chart">
+      {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+      </div>
+      <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+    </div>
+  </div>
+  <div class="card plain">
+    <div class="band">
+      <div class="toks">
+        <div class="mini"><div class="l">{{ t.ai_7d }}</div><div class="n-lg tnum">{{ ai.tok_7d }}</div></div>
+        <div class="mini"><div class="l">{{ t.ai_30d }}</div><div class="n-lg tnum">{{ ai.tok_30d }}</div></div>
+        <div class="mini"><div class="l">{{ t.ai_all }}</div><div class="n-lg tnum">{{ ai.tok_all }}</div></div>
+      </div>
+      <div class="costs">
+        <div class="cost-row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
+        {% if ai.custom_total %}<div class="cost-row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-md tnum">{{ ai.custom_total }}</span></div>{% endif %}
+      </div>
+    </div>
+  </div>
+{% endif %}
 </div>
 <div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span><b>2 / 5</b> {{ t.page_ai }}</span></div>
 </body></html>

@@ -18,17 +18,26 @@
 .chart .col .x{font-size:10px;color:var(--ink2);margin-top:4px;font-weight:700;}
 .legend{font-size:10px;color:var(--ink2);display:flex;gap:16px;margin-top:8px;letter-spacing:0.5px;}
 .legend i{display:inline-block;width:13px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
+/* 无额度(none)模式:趋势图当主角 + 底部 token/花费带 */
+.col-full{flex:1;min-width:0;display:flex;flex-direction:column;}
+.band{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:10px;}
+.band .tok{flex:1;}
+.band .costs{flex-shrink:0;text-align:right;}
+.band .costs .row{display:flex;justify-content:flex-end;align-items:baseline;gap:10px;}
+.band .costs .row + .row{margin-top:5px;}
+.band .costs .row .l{font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:1px;}
 </style></head><body>
 <div class="sheet"><div class="drawing">
   <div class="mast"><div><div class="pj">KINDLE-DASH · AI-USAGE</div><div class="ti">{{ t.ai_title }}</div></div><div class="meta tnum">{{ now }}</div></div>
   <div class="main">
+{% if ai.show_quota_panel %}
     <div class="col col-l">
-      <div class="fig"><span class="tag">A.1</span><span class="cap">{{ t.ai_claude_quota }}</span><span class="ln"></span></div>
+      {% if ai.show_cc_quota %}<div class="fig"><span class="tag">A.1</span><span class="cap">{{ t.ai_claude_quota }}</span><span class="ln"></span></div>
       <div class="barrow"><div class="kv"><span class="k">5H</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.five_pct }}%"></i></div></div>
-      <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.week_pct }}%"></i></div></div>
-      <div class="fig mt"><span class="tag">A.2</span><span class="cap">{{ t.ai_codex_quota }}</span><span class="ln"></span></div>
+      <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.week_pct }}%"></i></div></div>{% endif %}
+      {% if ai.show_cx_quota %}<div class="fig{% if ai.show_cc_quota %} mt{% endif %}"><span class="tag">{% if ai.show_cc_quota %}A.2{% else %}A.1{% endif %}</span><span class="cap">{{ t.ai_codex_quota }}</span><span class="ln"></span></div>
       <div class="barrow"><div class="kv"><span class="k">5H</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_five_pct }}%"></i></div></div>
-      <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+      <div class="barrow"><div class="kv"><span class="k">WEEK</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="gauge"><i class="dots" style="width:{{ ai.cx_week_pct }}%"></i></div></div>{% endif %}
       <div class="cost">
         <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
         <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-lg tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
@@ -50,6 +59,29 @@
         <div class="legend"><span><i class="hatch-a"></i>CLAUDE</span><span><i class="hatch-b"></i>CODEX</span></div>
       </div>
     </div>
+{% else %}
+    <div class="col col-full">
+      <div class="fig"><span class="tag">A.1</span><span class="cap">{{ t.ai_trend_7d }}</span><span class="ln"></span><span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+      <div class="chart-wrap">
+        <div class="chart">
+        {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+        </div>
+        <div class="legend"><span><i class="hatch-a"></i>CLAUDE</span><span><i class="hatch-b"></i>CODEX</span></div>
+      </div>
+      <div class="fig mt"><span class="tag">A.2</span><span class="cap">{{ t.ai_tokens }}</span><span class="ln"></span></div>
+      <div class="band">
+        <div class="tok">
+          <div class="c"><div class="l">7D</div><div class="v tnum">{{ ai.tok_7d }}</div></div>
+          <div class="c"><div class="l">30D</div><div class="v tnum">{{ ai.tok_30d }}</div></div>
+          <div class="c"><div class="l">ALL</div><div class="v tnum">{{ ai.tok_all }}</div></div>
+        </div>
+        <div class="costs">
+          <div class="row"><span class="l">{{ t.ai_today_official }}</span><span class="n-xl tnum">{{ ai.today_cost }}</span></div>
+          {% if ai.custom_total %}<div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.ai_custom }}{% endif %}</span><span class="n-lg tnum">{{ ai.custom_total }}</span></div>{% endif %}
+        </div>
+      </div>
+    </div>
+{% endif %}
   </div>
   <div class="titleblock">
     <div class="cell grow"><div class="l">PROJECT</div><div class="v">KINDLE DASHBOARD</div></div>

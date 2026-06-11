@@ -184,6 +184,12 @@ SCHEMA: list = [
         enable_when=["enabled"],
         fields=[
             Field("enabled", "启用", "bool", False),
+            Field("quota_show", "额度面板显示", "enum", "both",
+                  options=[("both", "Claude + Codex"), ("claude", "只显示 Claude"), ("codex", "只显示 Codex")],
+                  help="AI 页左侧『额度用量』(5h/周百分比+刷新倒计时)显示哪一个。"
+                       "只用 Claude 或只用 Codex 时可隐藏另一个;不影响下方 token 统计与趋势图。",
+                  label_en="Quota panel", help_en="Which quota block to show on the AI page left column "
+                       "(5h/week % + reset countdown). Hide the unused one; does not affect token stats / trend chart."),
             Field("claude_rate", "Claude 价格倍率", "float", 1.0,
                   help="Claude 官方价 × 此倍率 = 自定义花费(中转站对账用)。默认 1.0=按官方价。"),
             Field("codex_rate", "Codex 价格倍率", "float", 1.0,
@@ -426,6 +432,7 @@ OPTION_LABELS_EN = {
     "local": "Local (read on host)", "push": "Push (agent on target)", "ssh": "Pull (SSH in)",
     "auto": "Auto-detect", "linux": "Linux", "macos": "macOS", "windows": "Windows",
     "fixed": "Fixed one", "daily_random": "Daily random",
+    "both": "Claude + Codex", "claude": "Claude only", "codex": "Codex only",
 }
 
 

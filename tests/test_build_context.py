@@ -87,6 +87,32 @@ def test_ai_section():
     assert len(ai["chart"]) == 7                            # 近 7 天
 
 
+def test_quota_show_flags():
+    """额度面板显示开关:both/claude/codex → 两个布尔,默认 both(纯显示,不影响采集数据)。"""
+    cache = _mock_cache()
+    # 默认(无配置)= 两个都显示
+    ai = bc.prep_context(NOW, cache)["ai"]
+    assert ai["show_cc_quota"] is True and ai["show_cx_quota"] is True
+    # both 显式
+    ai = bc.prep_context(NOW, cache, {"ai_usage": {"quota_show": "both"}})["ai"]
+    assert ai["show_cc_quota"] is True and ai["show_cx_quota"] is True
+    # 只 Claude
+    ai = bc.prep_context(NOW, cache, {"ai_usage": {"quota_show": "claude"}})["ai"]
+    assert ai["show_cc_quota"] is True and ai["show_cx_quota"] is False
+    # 只 Codex
+    ai = bc.prep_context(NOW, cache, {"ai_usage": {"quota_show": "codex"}})["ai"]
+    assert ai["show_cc_quota"] is False and ai["show_cx_quota"] is True
+    # none = 都不显示(中转站用户),整列面板关闭 → 页面收成趋势图为主
+    ai = bc.prep_context(NOW, cache, {"ai_usage": {"quota_show": "none"}})["ai"]
+    assert ai["show_cc_quota"] is False and ai["show_cx_quota"] is False
+    assert ai["show_quota_panel"] is False
+    # 有额度的三种,整列面板都开
+    for s in ("both", "claude", "codex"):
+        assert bc.prep_context(NOW, cache, {"ai_usage": {"quota_show": s}})["ai"]["show_quota_panel"] is True
+    # 采集数字不受开关影响(还是原样)
+    assert ai["five_pct"] == 42 and ai["cx_five_pct"] == 15
+
+
 def test_custom_rate_two_tier():
     """Claude/Codex 各一档倍率,自定义价 = 各自官方价 × 倍率 之和。"""
     cfg = {"ai_usage": {"claude_rate": 0.5, "codex_rate": 0.1}}

@@ -17,17 +17,26 @@
 .chart .col .x{font-size:11px;color:var(--ink2);margin-top:4px;font-weight:700;}
 .legend{font-size:11px;color:var(--ink2);display:flex;gap:16px;margin-top:8px;}
 .legend i{display:inline-block;width:14px;height:9px;margin-right:5px;vertical-align:middle;border:1px solid var(--ink);}
+/* 无额度(none)模式:趋势图当主角 + 底部 token/花费带 */
+.col-full{flex:1;min-width:0;display:flex;flex-direction:column;}
+.band{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-top:12px;}
+.band .tok{flex:1;}
+.band .costs{flex-shrink:0;text-align:right;}
+.band .costs .row{display:flex;justify-content:flex-end;align-items:baseline;gap:10px;}
+.band .costs .row + .row{margin-top:5px;}
+.band .costs .row .l{font-size:11px;color:var(--ink3);font-weight:700;letter-spacing:1px;}
 </style></head><body>
 <div class="win">
   <div class="titlebar"><span class="path"><span class="b">kindle://</span>ai-usage</span><span class="clk tnum">{{ now }}</span></div>
   <div class="main">
+{% if ai.show_quota_panel %}
     <div class="pane col-l">
-      <div class="sec"><span><span class="br">[</span> CLAUDE <span class="br">]</span></span></div>
+      {% if ai.show_cc_quota %}<div class="sec"><span><span class="br">[</span> CLAUDE <span class="br">]</span></span></div>
       <div class="barrow"><div class="kv"><span class="k">{{ t.quota_5h }}</span><span class="v tnum">{{ ai.five_pct }}% <small>{{ ai.five_reset }}</small></span></div><div class="bar"><i style="width:{{ ai.five_pct }}%"></i></div></div>
-      <div class="barrow"><div class="kv"><span class="k">{{ t.quota_week }}</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="bar"><i style="width:{{ ai.week_pct }}%"></i></div></div>
-      <div class="sec mt"><span><span class="br">[</span> CODEX <span class="br">]</span></span></div>
+      <div class="barrow"><div class="kv"><span class="k">{{ t.quota_week }}</span><span class="v tnum">{{ ai.week_pct }}% <small>{{ ai.week_reset }}</small></span></div><div class="bar"><i style="width:{{ ai.week_pct }}%"></i></div></div>{% endif %}
+      {% if ai.show_cx_quota %}<div class="sec{% if ai.show_cc_quota %} mt{% endif %}"><span><span class="br">[</span> CODEX <span class="br">]</span></span></div>
       <div class="barrow"><div class="kv"><span class="k">{{ t.quota_5h }}</span><span class="v tnum">{{ ai.cx_five_pct }}% <small>{{ ai.cx_five_reset }}</small></span></div><div class="bar"><i style="width:{{ ai.cx_five_pct }}%"></i></div></div>
-      <div class="barrow"><div class="kv"><span class="k">{{ t.quota_week }}</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="bar"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>
+      <div class="barrow"><div class="kv"><span class="k">{{ t.quota_week }}</span><span class="v tnum">{{ ai.cx_week_pct }}% <small>{{ ai.cx_week_reset }}</small></span></div><div class="bar"><i style="width:{{ ai.cx_week_pct }}%"></i></div></div>{% endif %}
       <div class="cost">
         <div class="row"><span class="l">{{ t.today_official }}</span><span class="big tnum">{{ ai.today_cost }}</span></div>
         <div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.custom }}{% endif %}</span><span class="med tnum">{% if ai.custom_total %}{{ ai.custom_total }}{% else %}--{% endif %}</span></div>
@@ -49,6 +58,29 @@
         <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
       </div>
     </div>
+{% else %}
+    <div class="pane col-full">
+      <div class="sec"><span><span class="br">[</span> {{ t.recent_7d }} <span class="br">]</span></span><span class="aux">cc {{ ai.cc_cost }} · cx {{ ai.cx_cost }}</span></div>
+      <div class="chart-wrap">
+        <div class="chart">
+        {% for c in ai.chart %}<div class="col"><div class="val tnum">{{ c.val }}</div><div class="bars" style="height:{{ c.cc_h + c.cx_h }}%"><div class="hatch-b" style="flex:{{ c.cx_h }}"></div><div class="hatch-a" style="flex:{{ c.cc_h }}"></div></div><div class="x tnum">{{ c.day }}</div></div>{% endfor %}
+        </div>
+        <div class="legend"><span><i class="hatch-a"></i>Claude</span><span><i class="hatch-b"></i>Codex</span></div>
+      </div>
+      <div class="dash"></div>
+      <div class="band">
+        <div class="tok">
+          <div class="c"><div class="l">7D</div><div class="v tnum">{{ ai.tok_7d }}</div></div>
+          <div class="c"><div class="l">30D</div><div class="v tnum">{{ ai.tok_30d }}</div></div>
+          <div class="c"><div class="l">ALL</div><div class="v tnum">{{ ai.tok_all }}</div></div>
+        </div>
+        <div class="costs">
+          <div class="row"><span class="l">{{ t.today_official }}</span><span class="big tnum">{{ ai.today_cost }}</span></div>
+          {% if ai.custom_total %}<div class="row"><span class="l">{% if ai.custom_name %}{{ ai.custom_name }}{% else %}{{ t.custom }}{% endif %}</span><span class="med tnum">{{ ai.custom_total }}</span></div>{% endif %}
+        </div>
+      </div>
+    </div>
+{% endif %}
   </div>
   <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span></span><span class="seg"><span class="dim">PAGE</span> 2/5</span></div>
 </div>
