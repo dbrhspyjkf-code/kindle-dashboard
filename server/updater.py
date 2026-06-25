@@ -78,7 +78,7 @@ def _norm_ver(tag):
 
 
 def _ver_from_asset(name, suffix):
-    """从资产文件名取版本号:墨水桌面看板-1.0.dmg → '1.0'。取不到返回 ''。"""
+    """从资产文件名取版本号:MoshuiDesktop-1.0.dmg → '1.0'(GitHub 削非 ASCII 名后 -1.0.dmg 也兜得到)。取不到返回 ''。"""
     import re
     m = re.search(r"-(\d+(?:\.\d+)*)" + re.escape(suffix) + r"$", name or "", re.I)
     return m.group(1) if m else ""

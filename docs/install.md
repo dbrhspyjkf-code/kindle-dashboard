@@ -4,7 +4,7 @@
 
 ## 一、Mac 服务
 
-**推荐:图形安装(.dmg)。** 到 [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) 下载 `墨水桌面看板-x.x.dmg` → 拖进「应用程序」→ 双击。首启自动建环境(复制源码到 `~/Library/Application Support/墨水桌面看板/repo` 建 venv)、起服务、状态栏出图标;首次联网下载**无头渲染引擎 chrome-headless-shell ~100MB**(渲染不弹 Dock、已有则跳过)+ **Python 依赖 ~40MB**(测速自动选官方/清华源)。**装/设置/刷退 Kindle/检查更新/卸载全在状态栏菜单**。未签名,首开右键「打开」或系统设置放行一次。
+**推荐:图形安装(.dmg)。** 到 [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) 下载 `MoshuiDesktop-x.x.dmg` → 拖进「应用程序」→ 双击。首启自动建环境(复制源码到 `~/Library/Application Support/墨水桌面看板/repo` 建 venv)、起服务、状态栏出图标;首次联网下载**无头渲染引擎 chrome-headless-shell ~100MB**(渲染不弹 Dock、已有则跳过)+ **Python 依赖 ~40MB**(测速自动选官方/清华源)。**装/设置/刷退 Kindle/检查更新/卸载全在状态栏菜单**。未签名,首开右键「打开」或系统设置放行一次。
 
 **命令行安装(开发者 / 进阶):**
 

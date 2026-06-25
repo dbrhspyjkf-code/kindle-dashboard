@@ -3,14 +3,15 @@
 # 只用 macOS 自带工具(sips/iconutil/codesign/hdiutil),无需 Xcode 完整环境、无需 py2app。
 # 用法:bash installers/macos/build-mac-app.sh [版本号]
 #   版本号 默认 1.0;会写进 Info.plist 与 .app 内 APP_VERSION(供菜单栏「检查更新」比对)。
-# 产物:work/mac/墨水桌面看板-<版本>.dmg
+# 产物:work/mac/MoshuiDesktop-<版本>.dmg(dmg 文件名用 ASCII;App 名/卷名仍是「墨水桌面看板」)
 #
 # ⚠ 本次不签名(决策):用户首次打开需在「系统设置→隐私与安全性→仍要打开」放行一次。
 #   若以后买了 Apple 开发者账号,设 DEVELOPER_ID="Developer ID Application: 名字 (TEAMID)" 再跑本脚本即自动签名+公证。
 set -e
 
 VERSION="${1:-1.0}"
-APP_NAME="墨水桌面看板"
+APP_NAME="墨水桌面看板"                                # App 显示名 / dmg 卷名(用户可见,保留中文)
+DMG_NAME="MoshuiDesktop"                              # dmg 文件名前缀用 ASCII:GitHub Release 会删非 ASCII 文件名(墨水桌面看板-1.0.dmg → -1.0.dmg)
 BUNDLE_ID="com.kindle-dashboard.app"
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -120,11 +121,11 @@ else
   rm -rf "$STAGE"; mkdir -p "$STAGE"
   cp -R "$APPDIR" "$STAGE/"
   ln -s /Applications "$STAGE/Applications"
-  LOCAL_DMG="$BUILD/$APP_NAME-$VERSION.dmg"
+  LOCAL_DMG="$BUILD/$DMG_NAME-$VERSION.dmg"
   if hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$LOCAL_DMG" >/dev/null 2>&1; then
     mkdir -p "$OUT"
-    if cp -f "$LOCAL_DMG" "$OUT/$APP_NAME-$VERSION.dmg" 2>/dev/null; then
-      DMG="$OUT/$APP_NAME-$VERSION.dmg"; echo "   ✓ $DMG"
+    if cp -f "$LOCAL_DMG" "$OUT/$DMG_NAME-$VERSION.dmg" 2>/dev/null; then
+      DMG="$OUT/$DMG_NAME-$VERSION.dmg"; echo "   ✓ $DMG"
     else
       echo "   ⚠ 复制到 $OUT 失败(网络盘?);dmg 暂在本地,稍后可手动拷:$LOCAL_DMG"
       DMG="$LOCAL_DMG(本地临时,脚本结束会清,需要请手动保存)"

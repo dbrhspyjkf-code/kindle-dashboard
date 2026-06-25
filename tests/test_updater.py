@@ -43,9 +43,10 @@ def test_installed_version_prefers_app_version_file(tmp_path):
 
 
 def test_ver_from_asset():
-    """从资产文件名取版本号:墨水桌面看板-1.0.dmg → 1.0。"""
-    assert updater._ver_from_asset("墨水桌面看板-1.0.dmg", ".dmg") == "1.0"
-    assert updater._ver_from_asset("墨水桌面看板-2.3.1.dmg", ".dmg") == "2.3.1"
+    """从资产文件名取版本号:MoshuiDesktop-1.0.dmg → 1.0;GitHub 会削非 ASCII 名,故也兜被削成 -1.0.dmg 的形式。"""
+    assert updater._ver_from_asset("MoshuiDesktop-1.0.dmg", ".dmg") == "1.0"
+    assert updater._ver_from_asset("MoshuiDesktop-2.3.1.dmg", ".dmg") == "2.3.1"
+    assert updater._ver_from_asset("-1.0.dmg", ".dmg") == "1.0"      # GitHub 削掉中文前缀后仍取得到
     assert updater._ver_from_asset("no-version.dmg", ".dmg") == ""
 
 
@@ -58,7 +59,7 @@ def test_check_release_parses_and_compares(monkeypatch):
         "tag_name": "v2.0", "html_url": "https://example/r/v2.0", "name": "墨水 2.0",
         "draft": False, "prerelease": False,
         "assets": [
-            {"name": "墨水桌面看板-2.0.dmg", "browser_download_url": "https://example/dl/app.dmg"},
+            {"name": "MoshuiDesktop-2.0.dmg", "browser_download_url": "https://example/dl/app.dmg"},
             {"name": "MoshuiDesktop-2.0-2.apk", "browser_download_url": "https://example/dl/app.apk"},
         ],
     }]

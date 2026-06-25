@@ -24,7 +24,7 @@
 
 **① 装服务**(在一台常开的 Mac 上)
 
-**图形安装(推荐,全程不碰命令行)**:到 [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) 下载 `墨水桌面看板-x.x.dmg` → 打开 → 把「墨水桌面看板」拖进「应用程序」→ 双击。首次打开自动建环境、起服务、顶部状态栏出现图标。首次需联网下载:**专用无头渲染引擎 chrome-headless-shell 约 100MB**(让渲染时 macOS Dock 不抖;已有则跳过)+ **Python 依赖约 40MB**(测速自动选最快的源)。之后**打开设置、刷入/退出 Kindle、检查更新、卸载,全在状态栏菜单点一下**,无需终端。
+**图形安装(推荐,全程不碰命令行)**:到 [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) 下载 `MoshuiDesktop-x.x.dmg` → 打开 → 把「墨水桌面看板」拖进「应用程序」→ 双击。首次打开自动建环境、起服务、顶部状态栏出现图标。首次需联网下载:**专用无头渲染引擎 chrome-headless-shell 约 100MB**(让渲染时 macOS Dock 不抖;已有则跳过)+ **Python 依赖约 40MB**(测速自动选最快的源)。之后**打开设置、刷入/退出 Kindle、检查更新、卸载,全在状态栏菜单点一下**,无需终端。
 
 > 未签名,首次打开若被拦:**右键图标选「打开」**,或「系统设置 → 隐私与安全性 → 仍要打开」放行一次。
 
@@ -284,7 +284,7 @@ Three steps, one command each, with one round of web-form clicking in between �
 
 **① Install the service** (on an always-on Mac)
 
-**Graphical install (recommended, no command line)**: download `墨水桌面看板-x.x.dmg` from [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) → open it → drag "墨水桌面看板" into Applications → double-click. First launch builds the environment, starts the service, and shows an icon in the top status bar. First time it downloads: the **dedicated headless render engine chrome-headless-shell (~100MB)** so the macOS Dock doesn't flicker while rendering (skipped if already present), plus **Python deps ~40MB** (auto-picked fastest mirror). Afterwards **open settings, flash/remove Kindle, check for updates, and uninstall — all one click in the status-bar menu**, no terminal.
+**Graphical install (recommended, no command line)**: download `MoshuiDesktop-x.x.dmg` from [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) → open it → drag "墨水桌面看板" into Applications → double-click. First launch builds the environment, starts the service, and shows an icon in the top status bar. First time it downloads: the **dedicated headless render engine chrome-headless-shell (~100MB)** so the macOS Dock doesn't flicker while rendering (skipped if already present), plus **Python deps ~40MB** (auto-picked fastest mirror). Afterwards **open settings, flash/remove Kindle, check for updates, and uninstall — all one click in the status-bar menu**, no terminal.
 
 > Unsigned: if the first open is blocked, **right-click the icon → Open**, or System Settings → Privacy & Security → "Open Anyway" once.
 
