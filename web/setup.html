@@ -461,28 +461,39 @@ function choiceListField(sk,f,v,help,choices,labelFn,emptyText){
   return d;
 }
 
-// 页面顺序:↑/↓ 调整看板翻页顺序(只排序,不隐藏)。列出全部页,已存顺序在前、其余补后;
-// 配了数据源的页按此顺序显示,没配的后端自动跳过(见 schema.active_pages)。写隐藏 input,保存按 str_list 收。
+// 页面顺序 + 开关:↑/↓ 调翻页顺序;每行复选框关掉不想要的页(写进 hidden_pages,即使有数据也不显示)。
+// 列出全部页,已存顺序在前、其余补后。两个隐藏 input(pages=顺序 / hidden_pages=关闭项),保存按 str_list 收。
 function pageOrderField(sk,f,v,help){
   const d=document.createElement('div'); d.className='field';
   const valid=PAGES.slice();
   const saved=(Array.isArray(v)?v:[]).filter(k=>valid.includes(k));
   const ordered=saved.concat(valid.filter(k=>!saved.includes(k)));
+  const hidden0=((CONFIG.display||{}).hidden_pages||[]).filter(k=>valid.includes(k));
   const rowStyle="display:flex;justify-content:space-between;align-items:center;padding:7px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fafaf9;";
   const btn="font-size:14px;padding:2px 10px;line-height:1.2;";
   const rows=ordered.map(k=>`<div class="porow" data-v="${h(k)}" style="${rowStyle}">
-      <span style="font-weight:600;">${h(pageLabel(k))}</span>
+      <span style="font-weight:600;"><input type="checkbox" class="pen" ${hidden0.includes(k)?'':'checked'} style="margin-right:9px;vertical-align:middle;cursor:pointer;">${h(pageLabel(k))}</span>
       <span><button type="button" class="pup" title="${h(t('ha_move_up'))}" style="${btn}">↑</button>
         <button type="button" class="pdn" title="${h(t('ha_move_down'))}" style="${btn}">↓</button></span>
     </div>`).join('');
-  d.innerHTML=`<label>${f.label}</label><input type="hidden" id="f-${sk}-${f.key}" value="${h(ordered.join(', '))}">
+  d.innerHTML=`<label>${f.label}</label>
+    <input type="hidden" id="f-${sk}-${f.key}" value="${h(ordered.join(', '))}">
+    <input type="hidden" id="f-${sk}-hidden_pages" value="${h(hidden0.join(', '))}">
     <div class="porder">${rows}</div>`+help;
   const hid=d.querySelector(`#f-${sk}-${f.key}`);
+  const hidH=d.querySelector(`#f-${sk}-hidden_pages`);
   const list=d.querySelector('.porder');
-  function sync(){ hid.value=[...list.querySelectorAll('.porow')].map(r=>r.dataset.v).join(', '); }
+  function paint(row){ row.style.opacity=row.querySelector('.pen').checked?'':'.45'; }
+  function sync(){
+    const rs=[...list.querySelectorAll('.porow')];
+    hid.value=rs.map(r=>r.dataset.v).join(', ');
+    hidH.value=rs.filter(r=>!r.querySelector('.pen').checked).map(r=>r.dataset.v).join(', ');
+  }
   list.querySelectorAll('.porow').forEach(row=>{
     row.querySelector('.pup').onclick=()=>{ const p=row.previousElementSibling; if(p){ list.insertBefore(row,p); sync(); } };
     row.querySelector('.pdn').onclick=()=>{ const n=row.nextElementSibling; if(n){ list.insertBefore(n,row); sync(); } };
+    row.querySelector('.pen').onchange=()=>{ paint(row); sync(); };
+    paint(row);
   });
   return d;
 }

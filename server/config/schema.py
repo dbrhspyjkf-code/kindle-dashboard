@@ -401,9 +401,13 @@ SCHEMA: list = [
         fields=[
             Field("pages", "页面顺序", "str_list", default=[],
                   label_en="Page order",
-                  help="用 ↑/↓ 调整看板翻页顺序。配了数据源的页都会按此顺序显示;没配的自动跳过。",
-                  help_en="Reorder dashboard pages with ↑/↓. Every page with a configured data source "
-                          "shows in this order; unconfigured pages are skipped."),
+                  help="用 ↑/↓ 调翻页顺序;用每行的开关关掉不想要的页——关掉的页即使配了数据源也不显示、不刷新。",
+                  help_en="Reorder pages with ↑/↓; use each row's toggle to switch off pages you don't want — "
+                          "a disabled page is hidden and not refreshed even if its data source is configured."),
+            Field("hidden_pages", "隐藏的页", "str_list", default=[], hidden=True,
+                  label_en="Hidden pages",
+                  help="被用户手动关闭的页(由页面顺序编辑器维护,不单独渲染)。",
+                  help_en="Pages turned off by the user (maintained by the page-order editor)."),
             Field("style_mode", "风格模式", "enum", "fixed",
                   options=[("fixed", "固定一套"), ("daily_random", "每日随机")]),
             Field("style", "风格", "str", "style_a"),
@@ -495,11 +499,13 @@ def active_pages(config: dict) -> list:
     }
     default_order = ["home", "ai", "news", "music", "download", "device", "ha", "printer"]
     chosen = config.get("display", {}).get("pages") or []
+    hidden = config.get("display", {}).get("hidden_pages") or []
     base = chosen if chosen else default_order
     # 补上 base 没列、但已就绪的页(自定义顺序后新配的数据源页不致凭空消失);
-    # 这样 display.pages 是"顺序偏好"而非"白名单",配了数据源的页一定显示(诚实降级)。
+    # display.pages 是"顺序偏好"而非"白名单",配了数据源的页默认显示(诚实降级);
+    # 但 hidden_pages 里的页是用户在设置页主动关闭的,即使数据源就绪也撤下、不渲染。
     order = list(base) + [p for p in default_order if p not in base]
-    return [p for p in order if page_ready.get(p)]
+    return [p for p in order if page_ready.get(p) and p not in hidden]
 
 
 def validate(config: dict) -> list:

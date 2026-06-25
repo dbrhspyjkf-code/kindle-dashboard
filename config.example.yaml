@@ -129,6 +129,7 @@ devices:
 # 页面与风格
 display:
   pages: []                  # 留空=按已配数据源自动启用;或显式列 [home, ai, device]
+  hidden_pages: []           # 手动关掉的页(即使配了数据源也不显示);设置页页面顺序处用开关切
   style_mode: fixed          # fixed=固定一套;daily_random=每日随机
   style: style_a
   style_rotation: [style_a]  # 每日随机时从这些里选

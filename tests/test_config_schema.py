@@ -65,6 +65,19 @@ def test_pages_custom_order_and_appends_unlisted():
     assert "home" in pages and "news" in pages       # 没列进去但已配 → 仍出现(补在后面)
 
 
+def test_hidden_pages_overrides_configured():
+    """display.hidden_pages 里的页即使数据源就绪也撤下(用户在设置页主动关闭);其它页不受影响。"""
+    cfg = schema.default_config()
+    cfg["weather"]["key"] = "x"; cfg["weather"]["location"] = "101010100"   # home 就绪
+    cfg["ai_usage"]["enabled"] = True                                       # ai 就绪
+    assert "home" in schema.active_pages(cfg)
+    assert "ai" in schema.active_pages(cfg)
+    cfg["display"]["hidden_pages"] = ["home"]
+    pages = schema.active_pages(cfg)
+    assert "home" not in pages          # 配了天气数据源也被手动关掉
+    assert "ai" in pages                # 没关的页不受影响
+
+
 def test_required_only_checked_when_enabled():
     """HA token 必填,但只在 HA 模块启用(填了 url)时才校验。"""
     cfg = schema.default_config()
