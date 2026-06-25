@@ -1,5 +1,5 @@
 #!/bin/sh
-# Linux 指标采集 —— 输出统一 JSON。本机直读/SSH拉/推agent 三处复用。
+# Linux 指标采集 —— 输出统一 JSON。本机直读/推agent 两处复用。
 # 字段契约见 docs/data-contract.md(device 段 raw):
 #   cpu_pct, mem_used, mem_total, net_rx, net_tx, disk_read, disk_write(均 bytes/s), disks[]
 # 自动探测:网卡(累加非 lo)、磁盘 IO(累加整盘)、分区(df 真实挂载)。无硬编码设备名。

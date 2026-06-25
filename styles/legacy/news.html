@@ -1,0 +1,23 @@
+{# legacy 资讯(浅色 editorial):当前一批 entries(来源/时间 → 大标题 → 正文截断 3 行)。共享类在外壳。 #}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ now }}{% if news.total %}<br><span class="ink3 tnum">{{ news.index }} / {{ news.total }}</span>{% endif %}</div>
+    <div class="kicker">{{ t.news_kicker }}</div>
+    <div class="title ell">{{ news.title }}</div>
+  </div>
+  {% if news.entries %}
+  {# data-fit:外壳 trimOverflow() 测高,只保留完整放得下的条目 → 按内容长短显示 1~N 条、不半截。 #}
+  <div class="main" data-fit>
+    {% for e in news.entries %}
+    <div class="nitem{% if loop.first %} first{% endif %}">
+      <div class="nmeta clear">{% if e.category %}<span class="cat">{{ e.category }}</span>{% endif %}{% if e.source %}<span class="src">{{ e.source }}</span>{% endif %}{% if e.when %}<span class="when">{{ e.when }}</span>{% endif %}</div>
+      <div class="ntitle">{{ e.title }}</div>
+      {% if e.summary %}<div class="nbody">{{ e.summary }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="main"><div class="empty-box"><div class="big">{{ t.news_empty }}</div><div>{{ t.news_empty_hint }}</div></div></div>
+  {% endif %}
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span>{% endif %}<span>{{ t.foot_updated }} {{ time_hm }}</span></div>
+</div>

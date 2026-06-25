@@ -13,6 +13,9 @@ import socket
 import subprocess
 import threading
 import time
+import base64
+import hashlib
+import random
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone, timedelta
 
@@ -23,8 +26,9 @@ from server.config import schema
 from server.config.loader import ConfigManager
 from server.render import styles, pipeline, contract
 from server.render.build_context import prep_context
-from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo
+from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader
 from server.sources.ccusage_merge import merge_all_devices
+from server import actions
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -56,6 +60,9 @@ DATA_DIR = os.environ.get("KINDLE_DATA_DIR", os.path.join(REPO_ROOT, "data"))
 APPLE_REMINDERS_CACHE = os.environ.get(
     "KINDLE_APPLE_REMINDERS_CACHE", os.path.join(DATA_DIR, "apple_reminders.json"))
 CCUSAGE_DEVICES_CACHE = os.path.join(DATA_DIR, "ccusage_devices.json")
+MUSIC_CACHE = os.environ.get("KINDLE_MUSIC_CACHE", os.path.join(DATA_DIR, "music.json"))
+MUSIC_ARTWORK_DIR = os.environ.get("KINDLE_MUSIC_ARTWORK_DIR", os.path.join(DATA_DIR, "music_artwork"))
+MUSIC_ARTWORK_INDEX = os.path.join(MUSIC_ARTWORK_DIR, "index.json")
 
 # 推送 agent 脚本(被监控机 curl 下载):白名单路径,纯文本下发
 AGENT_FILES = {
@@ -70,7 +77,9 @@ AGENT_FILES = {
     "install_reminders.sh": os.path.join(REPO_ROOT, "installers", "mac-push", "install_reminders.sh"),
     "install_ccusage.sh":   os.path.join(REPO_ROOT, "installers", "mac-push", "install_ccusage.sh"),
     "install_quota.sh":     os.path.join(REPO_ROOT, "installers", "mac-push", "install_quota.sh"),
+    "install_music.sh":     os.path.join(REPO_ROOT, "installers", "mac-push", "install_music.sh"),
     "read_reminders.js":    os.path.join(REPO_ROOT, "installers", "macos", "reminders", "read_reminders.js"),
+    "read_music.js":        os.path.join(REPO_ROOT, "installers", "macos", "music", "read_music.js"),
     "claude_statusline.py": os.path.join(REPO_ROOT, "installers", "macos", "quota", "claude_statusline.py"),
     "codex_quota.py":       os.path.join(REPO_ROOT, "installers", "macos", "quota", "codex_quota.py"),
 }
@@ -80,7 +89,9 @@ SOURCE_INTERVAL = {"weather":       ("weather", "interval", 600),
                    "ccusage_cli":   ("ai_usage", "interval", 300),
                    "homeassistant": ("home_assistant", "interval", 60),
                    "metrics":       ("devices", "interval", 30),
-                   "mstodo":        ("mstodo", "interval", 600)}
+                   "mstodo":        ("mstodo", "interval", 600),
+                   "rss":           ("news", "interval", 1800),
+                   "downloader":    ("downloaders", "interval", 15)}
 # 渲染间隔放在「服务」段
 RENDER_INTERVAL = ("server", "render_interval", 30)
 
@@ -95,7 +106,7 @@ RENDER_LOCK = threading.Lock()
 CURRENT = {"style": None}
 page_state = {"i": 0, "last": 0.0}
 
-SOURCES = (weather, ccusage_cli, homeassistant, metrics, mstodo)
+SOURCES = (weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader)
 CONFIG_SAVE_SYNC_SOURCES = (weather,)
 
 
@@ -117,6 +128,205 @@ def _apple_payload(data):
     }
 
 
+def _fmt_push_hm(ts):
+    try:
+        ts = float(ts)
+    except (TypeError, ValueError):
+        ts = time.time()
+    return datetime.fromtimestamp(ts, _tz(cm.get())).strftime("%H:%M")
+
+
+def _music_cfg_int(key, default, lo=0, hi=10000):
+    try:
+        value = int(((cm.get().get("music", {}) or {}).get(key, default)) or default)
+    except (TypeError, ValueError):
+        value = default
+    return max(lo, min(hi, value))
+
+
+def _music_load_artwork_index():
+    try:
+        with open(MUSIC_ARTWORK_INDEX, encoding="utf-8") as f:
+            data = json.load(f) or {}
+    except FileNotFoundError:
+        return []
+    except Exception as e:
+        print(f"[music-push] 读取封面缓存索引失败:{e}")
+        return []
+    items = data.get("items") if isinstance(data, dict) else []
+    return items if isinstance(items, list) else []
+
+
+def _music_write_artwork_index(items):
+    _atomic_json_write(MUSIC_ARTWORK_INDEX, {"items": items})
+
+
+def _music_cache_artwork(art_hash, blob, mime, meta, sampled_at):
+    if not blob:
+        return ""
+    if mime not in ("image/jpeg", "image/png", "image/webp"):
+        mime = "image/jpeg"
+    if not art_hash:
+        art_hash = hashlib.sha256(blob).hexdigest()
+    safe_hash = re.sub(r"[^A-Za-z0-9_.-]", "_", art_hash)[:96]
+    ext = {"image/png": ".png", "image/webp": ".webp"}.get(mime, ".jpg")
+    filename = f"{safe_hash}{ext}"
+    os.makedirs(MUSIC_ARTWORK_DIR, exist_ok=True)
+    path = os.path.join(MUSIC_ARTWORK_DIR, filename)
+    if not os.path.exists(path):
+        with open(path, "wb") as f:
+            f.write(blob)
+
+    items = _music_load_artwork_index()
+    by_hash = {it.get("hash"): it for it in items if isinstance(it, dict)}
+    old = by_hash.get(art_hash) or {}
+    item = {
+        "hash": art_hash,
+        "path": filename,
+        "mime": mime,
+        "first_seen": old.get("first_seen") or sampled_at,
+        "last_seen": sampled_at,
+        "name": meta.get("name") or old.get("name", ""),
+        "artist": meta.get("artist") or old.get("artist", ""),
+        "album": meta.get("album") or old.get("album", ""),
+    }
+    by_hash[art_hash] = item
+    items = sorted(by_hash.values(), key=lambda it: float(it.get("last_seen") or 0), reverse=True)
+    limit = _music_cfg_int("artwork_cache_limit", 120, 0, 500)
+    if limit:
+        keep, drop = items[:limit], items[limit:]
+    else:
+        keep, drop = [], items
+    for it in drop:
+        try:
+            p = os.path.join(MUSIC_ARTWORK_DIR, it.get("path", ""))
+            if p.startswith(MUSIC_ARTWORK_DIR) and os.path.isfile(p):
+                os.remove(p)
+        except Exception:
+            pass
+    _music_write_artwork_index(keep)
+    return art_hash
+
+
+def _music_artwork_wall():
+    count = _music_cfg_int("artwork_wall_count", 20, 1, 40)
+    items = [it for it in _music_load_artwork_index() if isinstance(it, dict) and it.get("path")]
+    if not items:
+        return []
+    rng = random.Random(int(time.time() // 300))
+    items = list(items)
+    rng.shuffle(items)
+    out = []
+    for it in items[:count]:
+        path = os.path.join(MUSIC_ARTWORK_DIR, it.get("path", ""))
+        try:
+            with open(path, "rb") as f:
+                raw = base64.b64encode(f.read()).decode()
+        except Exception:
+            continue
+        mime = it.get("mime") or "image/jpeg"
+        out.append({
+            "url": f"data:{mime};base64,{raw}",
+            "hash": it.get("hash", ""),
+            "album": it.get("album", ""),
+            "artist": it.get("artist", ""),
+        })
+    return out
+
+
+def _music_payload(data, previous=None):
+    """Mac Music agent 上报 → 扁平 cache["music"]。
+    封面第一版用 data URI,因为 Kindle 渲染链路是 file:// 临时 HTML,相对 HTTP 图片不稳定。
+    agent 只在封面 hash 变化时上传 artwork_data;hash 不变时沿用 previous.artwork_url。"""
+    previous = previous or {}
+    sampled_at = data.get("sampled_at") or time.time()
+    updated_at = _fmt_push_hm(sampled_at)
+    has_track = bool(data.get("has_track"))
+    if not has_track:
+        return {
+            "available": True,
+            "has_track": False,
+            "state": "stopped",
+            "sampled_at": sampled_at,
+            "state_since": previous.get("state_since") if previous.get("state") == "stopped" else sampled_at,
+            "artwork_wall": _music_artwork_wall(),
+            "updated_at": updated_at,
+        }
+
+    def num(name, default=0):
+        try:
+            return float(data.get(name, default) or default)
+        except (TypeError, ValueError):
+            return default
+
+    rep = (data.get("repeat") or "off").strip().lower()
+    if rep not in ("off", "all", "one"):
+        rep = "off"
+    st = (data.get("state") or "stopped").strip().lower()
+    if st not in ("playing", "paused", "stopped"):
+        st = "stopped"
+    art_url = ""
+    art_hash = data.get("artwork_hash") or ""
+    if data.get("has_artwork"):
+        raw = data.get("artwork_data") or ""
+        mime = (data.get("artwork_mime") or "image/jpeg").split(";", 1)[0]
+        if raw:
+            if len(raw) > 3_000_000:
+                raise ValueError("artwork too large")
+            try:
+                blob = base64.b64decode(raw, validate=True)
+                if mime not in ("image/jpeg", "image/png", "image/webp"):
+                    mime = "image/jpeg"
+                art_hash = _music_cache_artwork(art_hash, blob, mime, data, sampled_at) or art_hash
+                art_url = f"data:{mime};base64,{raw}"
+            except Exception:
+                art_url = ""
+        elif art_hash and art_hash == previous.get("artwork_hash"):
+            art_url = previous.get("artwork_url", "") or ""
+    track_id = data.get("track_id") or data.get("persistent_id") or ""
+    prev_same_state = previous.get("has_track") and previous.get("state") == st
+    prev_same_track = (previous.get("track_id") or previous.get("persistent_id") or "") == track_id
+    state_since = previous.get("state_since") if (prev_same_state and prev_same_track) else sampled_at
+    payload = {
+        "available": True,
+        "has_track": True,
+        "state": st,
+        "state_since": state_since or sampled_at,
+        "track_id": track_id,
+        "persistent_id": data.get("persistent_id") or "",
+        "database_id": data.get("database_id") or 0,
+        "name": data.get("name") or "--",
+        "artist": data.get("artist") or "",
+        "album": data.get("album") or "",
+        "album_artist": data.get("album_artist") or "",
+        "composer": data.get("composer") or "",
+        "genre": data.get("genre") or "",
+        "year": str(data.get("year") or ""),
+        "duration": num("duration", 0),
+        "position": num("position", 0),
+        "sampled_at": sampled_at,
+        "shuffle": bool(data.get("shuffle", False)),
+        "repeat": rep,
+        "track_number": int(num("track_number", 0)),
+        "track_count": int(num("track_count", 0)),
+        "loved": bool(data.get("loved", False)),
+        "play_count": int(num("play_count", 0)),
+        "artwork_hash": art_hash,
+        "artwork_url": art_url,
+        "artwork_wall": _music_artwork_wall(),
+        "updated_at": updated_at,
+    }
+    return payload
+
+
+def _music_payload_for_disk(payload):
+    disk = dict(payload or {})
+    # artwork_wall 是渲染用 data URI 列表,可能很大;封面本体已在 MUSIC_ARTWORK_DIR,
+    # 重启时 _load_music_cache 会从索引重建,不要写进 music.json。
+    disk.pop("artwork_wall", None)
+    return disk
+
+
 def _load_apple_reminders_cache():
     """服务重启后回放上次 Apple 提醒,避免等下一轮 launchd 推送前首页空掉。"""
     try:
@@ -134,6 +344,24 @@ def _load_apple_reminders_cache():
         cache["reminders"] = reminders
         cache["apple_updated"] = payload.get("updated_at")
     print(f"[apple-sync] 已加载本地缓存 {len(reminders)} 条")
+
+
+def _load_music_cache():
+    """服务重启后回放上一帧 Music 状态,避免音乐页先空掉。"""
+    try:
+        with open(MUSIC_CACHE, encoding="utf-8") as f:
+            payload = json.load(f) or {}
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f"[music-push] 读取本地缓存失败:{e}")
+        return
+    if not isinstance(payload, dict):
+        return
+    payload["artwork_wall"] = _music_artwork_wall()
+    with cache_lock:
+        cache["music"] = payload
+    print(f"[music-push] 已加载本地缓存:{'有曲目' if payload.get('has_track') else '无播放'}")
 
 
 def _is_local_host(host):
@@ -227,6 +455,7 @@ def _local_hostname_url(scheme, port):
 
 
 _load_apple_reminders_cache()
+_load_music_cache()
 
 
 def _load_ccusage_devices_cache():
@@ -292,9 +521,23 @@ def _prune_pull_device_cache(cfg):
 
 def collect_source(src, cfg):
     try:
-        _merge(src.collect(cfg))
+        data = src.collect(cfg)
+        _merge(data)
+        return data            # 真拿到数据(非 None/非空)→ 真值;失败/无源 → None/空(供冷启动快速重试判断)
     except Exception as e:
         print(f"[collect] {src.__name__}: {e}")
+    return None
+
+
+def _page_meta(cfg, style, page_key):
+    """页脚动态页码:按「实际启用页顺序」(active_pages,反映用户手动排序)算 (当前页号, 总页数)。
+    只数该 style 真有模板的页;page_key 不在其中兜底 1。"""
+    pages = [p for p in schema.active_pages(cfg) if styles.has_page(style, p)]
+    total = len(pages) or 1
+    try:
+        return pages.index(page_key) + 1, total
+    except ValueError:
+        return 1, total
 
 
 def render_all(cfg):
@@ -310,6 +553,7 @@ def render_all(cfg):
     for pk in pages:
         if not styles.has_page(style, pk):
             continue
+        ctx["page_no"], ctx["page_total"] = _page_meta(cfg, style, pk)
         try:
             new[pk] = pipeline.render_html_to_png(styles.render_page(style, pk, ctx), rc)
         except Exception as e:
@@ -336,12 +580,21 @@ def _interval(cfg, section, field, default):
 
 
 def source_loop(src):
-    """每个数据源一条独立线程,按各自间隔采集,互不阻塞(慢源如 ccusage 不再拖累渲染)。"""
+    """每个数据源一条独立线程,按各自间隔采集,互不阻塞(慢源如 ccusage 不再拖累渲染)。
+    **冷启动快速重试**:本源还没成功拿到过数据时(如启动瞬间网络没就绪、RSS 拉空),
+    用 ≤30s 短间隔重试、不空等整个采集间隔(否则 RSS 30 分钟/次会让 news 页空置半小时)。
+    重试窗口限前 5 分钟,避免没配的源长期空转。"""
     section, field, default = SOURCE_INTERVAL.get(src.__name__.rsplit(".", 1)[-1], RENDER_INTERVAL)
+    t0 = time.time()
+    got = False
     while True:
         cfg = cm.get()
-        collect_source(src, cfg)
-        time.sleep(_interval(cfg, section, field, default))
+        if collect_source(src, cfg):
+            got = True
+        interval = _interval(cfg, section, field, default)
+        if not got and (time.time() - t0) < 300:
+            interval = min(interval, 30)
+        time.sleep(interval)
 
 
 def render_loop():
@@ -392,15 +645,79 @@ def _log_rotate_loop():
         time.sleep(3600)
 
 
+# ---------- mDNS 局域网广播(让安卓 App 自动发现看板服务器,免手敲 IP) ----------
+def _primary_ipv4():
+    """本机在局域网里的主 IPv4(连一下外网取出网网卡地址,不真发包)。取不到返回 ''。"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return ""
+
+
+_mdns = {"zc": None, "info": None}
+
+
+def _start_mdns(port):
+    """广播 `_kindledash._tcp.local.` 服务,TXT 带 path=/app + name=主机名。
+    zeroconf 没装 / 取不到 IP / 注册失败都**静默跳过**(不影响服务起来;App 端永远保留手填/扫码兜底)。
+    NAS Docker 桥接网络下 mDNS 出不了容器,需 host network 才有效(见 docs)。"""
+    try:
+        from zeroconf import Zeroconf, ServiceInfo
+    except Exception as e:
+        print(f"[mDNS] 未安装 zeroconf,跳过局域网广播(pip install zeroconf 后重启即可):{e}")
+        return
+    ip = _primary_ipv4()
+    if not ip:
+        print("[mDNS] 取不到本机 IP,跳过广播")
+        return
+    try:
+        host = (socket.gethostname() or "kindle-dashboard").split(".")[0]
+        safe = "".join(c for c in host if c.isalnum() or c in "-_") or "dashboard"
+        info = ServiceInfo(
+            "_kindledash._tcp.local.",
+            f"{safe}._kindledash._tcp.local.",
+            addresses=[socket.inet_aton(ip)],
+            port=int(port),
+            properties={"path": "/app", "name": host},
+            server=f"{safe}.local.",
+        )
+        zc = Zeroconf()
+        zc.register_service(info)
+        _mdns["zc"], _mdns["info"] = zc, info
+        print(f"[mDNS] 已广播 _kindledash._tcp → {ip}:{port}(名:{host})")
+    except Exception as e:
+        print(f"[mDNS] 注册失败,跳过:{e}")
+
+
+def _stop_mdns():
+    zc = _mdns.get("zc")
+    if not zc:
+        return
+    try:
+        if _mdns.get("info"):
+            zc.unregister_service(_mdns["info"])
+        zc.close()
+    except Exception:
+        pass
+    _mdns["zc"] = _mdns["info"] = None
+
+
 @asynccontextmanager
 async def lifespan(_app):
     _ensure_access_token()
     pipeline.kill_stale_chrome()   # 清上一轮残留的渲染 Chrome(重启即自动扫除僵尸,免手动 pkill)
+    port = (cm.get().get("server", {}) or {}).get("port", 8585)
+    _start_mdns(port)
     for src in SOURCES:
         threading.Thread(target=source_loop, args=(src,), daemon=True).start()
     threading.Thread(target=render_loop, daemon=True).start()
     threading.Thread(target=_log_rotate_loop, daemon=True).start()
     yield
+    _stop_mdns()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -412,8 +729,9 @@ from fastapi import Request  # noqa: E402
 # 豁免前缀:Kindle 只拉 frame.png / page/*;agent 下发、health、setup 空壳页都放行
 _AUTH_EXEMPT_PREFIXES = ("/kindle/frame.png", "/kindle/page/", "/agent/", "/health", "/setup")
 # 豁免精确路径:设备主动上报的接口(push 进来,Kindle/agent 调,带不了令牌)
-_AUTH_EXEMPT_EXACT = {"/", "/api/device-metrics", "/api/apple-sync",
-                      "/api/rate-limits", "/api/kindle-status", "/api/ccusage"}
+_AUTH_EXEMPT_EXACT = {"/", "/api/device-metrics", "/api/apple-sync", "/api/music",
+                      "/api/rate-limits", "/api/kindle-status", "/api/ccusage",
+                      "/qrcode.js"}   # 公共 MIT QR 库(设置页 <script src> 加载,无密钥,豁免)
 
 
 @app.middleware("http")
@@ -483,6 +801,7 @@ def kindle_preview(page: str, style: str = ""):
     now = datetime.now(_tz(cfg))
     with cache_lock:
         ctx = prep_context(now, dict(cache), cfg)
+    ctx["page_no"], ctx["page_total"] = _page_meta(cfg, s, page)
     try:
         html = styles.render_page(s, page, ctx)
         rc = pipeline.RenderConfig.from_config(cfg)
@@ -576,6 +895,358 @@ async def api_ccusage_push(data: dict = Body(...)):
     if not (cm.get().get("ai_usage", {}) or {}).get("enabled"):
         cm.force_set("ai_usage", "enabled", True)
     return {"status": "ok", "id": dev_id}
+
+
+@app.post("/api/music")
+async def api_music_push(data: dict = Body(...)):
+    """接收 Mac Music agent 推送的当前播放状态。"""
+    if not isinstance(data, dict):
+        return JSONResponse({"status": "rejected", "error": "invalid payload"}, status_code=400)
+    try:
+        with cache_lock:
+            prev = cache.get("music") or {}
+            payload = _music_payload(data, prev)
+            cache["music"] = payload
+    except ValueError as e:
+        return JSONResponse({"status": "rejected", "error": str(e)}, status_code=413)
+    try:
+        _atomic_json_write(MUSIC_CACHE, _music_payload_for_disk(payload))
+    except Exception as e:
+        print(f"[music-push] 落盘失败:{e}")
+    if not (cm.get().get("music", {}) or {}).get("enabled"):
+        cm.force_set("music", "enabled", True)
+    return {"status": "ok", "has_track": bool(payload.get("has_track")), "artwork": bool(payload.get("artwork_url")),
+            "artwork_wall": len(payload.get("artwork_wall") or [])}
+
+
+# ---------- 安卓 App:活的交互 HTML(/app 外壳 + /app/page/* 单页)----------
+# 都经 _auth 令牌保护(不是 Kindle 拉图,绝不豁免)。一套 styles 模板,target=android 出活 HTML。
+APP_PAGE_TEXTS = {
+    "zh": {"reconnecting": "连接中断,重连中…", "confirm_stop": "确认停止打印?此操作不可恢复。",
+           "action_failed": "操作失败", "net_error": "网络错误", "no_pages": "还没启用任何页面,请先在设置页配置数据源。",
+           # ↓ HA 控制面板(底部 sheet)静态文案(spec ha-page-interaction-spec.md §3.5,中央注入)
+           "close": "关闭", "p_open": "打开", "p_close": "关闭", "p_stop": "停止",
+           "p_on": "开", "p_off": "关", "p_play": "播放/暂停", "p_prev": "上一首", "p_next": "下一首",
+           "p_volup": "音量+", "p_voldown": "音量−", "p_mute": "静音", "p_apply": "应用", "p_set": "设置",
+           "p_mode": "模式", "p_current": "当前", "p_target": "目标", "p_position": "位置",
+           "p_code": "密码(可选)", "p_arm_home": "在家布防", "p_arm_away": "离家布防",
+           "p_arm_night": "夜间布防", "p_disarm": "撤防", "confirm_disarm": "确认撤防?将解除安防警戒。"},
+    "en": {"reconnecting": "Disconnected, reconnecting…", "confirm_stop": "Stop the print? This cannot be undone.",
+           "action_failed": "Action failed", "net_error": "Network error", "no_pages": "No pages enabled yet — configure a data source in setup first.",
+           "close": "Close", "p_open": "Open", "p_close": "Close", "p_stop": "Stop",
+           "p_on": "On", "p_off": "Off", "p_play": "Play/Pause", "p_prev": "Prev", "p_next": "Next",
+           "p_volup": "Vol+", "p_voldown": "Vol−", "p_mute": "Mute", "p_apply": "Apply", "p_set": "Set",
+           "p_mode": "Mode", "p_current": "Now", "p_target": "Target", "p_position": "Position",
+           "p_code": "code (optional)", "p_arm_home": "Arm Home", "p_arm_away": "Arm Away",
+           "p_arm_night": "Arm Night", "p_disarm": "Disarm", "confirm_disarm": "Disarm the alarm system?"},
+}
+
+
+# —— 三档梯度 UA 分流(施工图 §2.3):/app 按 User-Agent 自动把不同浏览器送到对的看板出口 ——
+# 古董(Kindle 自带 WebKit / NetFront / 安卓 0~2.x)→ /web-simple(无 JS 静态图)
+# 老安卓(3.x/4.x 老 AOSP WebKit,能跑 float+ES5 跑不了 grid)→ /app-legacy(float-CSS 活页)
+# 其余(现代 Chromium / 现代安卓 WebView)→ /app(现状全功能)
+# 正则只是起点,真机校准:安卓4.2 必落 legacy、Kindle 自带浏览器必落 simple(附录B)。
+# 装壳不靠 UA:安卓壳按 SDK_INT 直接加载对应路径(更准),浏览器直接开才走这里。
+_UA_ANCIENT = re.compile(r"(Kindle|Silk|NetFront|Obigo|UCWEB|Android [0-2]\.)", re.I)
+_UA_OLD_ANDROID = re.compile(r"(Android [34]\.|Version/4\.)", re.I)
+
+
+def _classify_ua(ua: str) -> str:
+    """返回 'app'(现代)/ 'legacy'(老安卓)/ 'simple'(古董)。古董优先(Kindle Fire 也带 Android 4.)。"""
+    ua = ua or ""
+    if _UA_ANCIENT.search(ua):
+        return "simple"
+    if _UA_OLD_ANDROID.search(ua):
+        return "legacy"
+    return "app"
+
+
+def _tier_redirect(request: Request):
+    """按 ?force= 覆盖或 UA 自动判断,给出该跳转的目标(透传 token);现代档返回 None(不跳,原样给 /app)。"""
+    from fastapi.responses import RedirectResponse
+    force = request.query_params.get("force")
+    tier = force if force in ("app", "legacy", "simple") else _classify_ua(request.headers.get("user-agent", ""))
+    if tier == "app":
+        return None
+    tok = request.query_params.get("token", "") or ""
+    target = "/app-legacy" if tier == "legacy" else "/web-simple"
+    if tok:
+        from urllib.parse import quote
+        target += "?token=" + quote(tok)
+    return RedirectResponse(target, status_code=302)
+
+
+@app.get("/app", response_class=HTMLResponse)
+def app_shell(request: Request):
+    """安卓 App 外壳页:页签 + 轮询/动作 JS + 自适应缩放。页面内容靠 /app/page/* 轮询拉。
+    入口处先按 UA 三档分流(老安卓→/app-legacy、古董→/web-simple);现代浏览器/WebView 不跳,原样给本页。"""
+    redir = _tier_redirect(request)
+    if redir is not None:
+        return redir
+    cfg = cm.get()
+    lang = (cfg.get("server", {}) or {}).get("language", "zh")
+    style = styles.pick_style(cfg)
+    active = [p for p in schema.active_pages(cfg) if styles.has_page(style, p)]
+    pages = [{"key": p, "title": contract.PAGES[p]["title"]} for p in active]
+    token = request.query_params.get("token", "") or ""
+    app_cfg = {
+        "token": token,
+        "interval": _interval(cfg, "server", "app_poll_interval", 5),     # 当前页轮询刷新(数据)
+        "page_interval": _interval(cfg, "server", "page_interval", 20),    # 自动轮播翻页(复用 Kindle 翻页间隔)
+        "style": style,
+        "default": active[0] if active else "home",
+        "pages": pages,
+        "texts": APP_PAGE_TEXTS.get(lang, APP_PAGE_TEXTS["zh"]),
+    }
+    path = os.path.join(WEB_DIR, "app.html")
+    if not os.path.exists(path):
+        return HTMLResponse("<h1>App 外壳未安装</h1>", status_code=404)
+    with open(path, encoding="utf-8") as f:
+        shell = f.read()
+    return HTMLResponse(shell.replace("__APP_CONFIG__", json.dumps(app_cfg, ensure_ascii=False)))
+
+
+@app.get("/app/page/{page_key}", response_class=HTMLResponse)
+def app_page(page_key: str, request: Request):
+    """用现有模板渲染单页活 HTML 片段(彩色 + 可点控件,target=android)。不走 Chromium 截图。"""
+    cfg = cm.get()
+    style = styles.pick_style(cfg)
+    if not style or not styles.has_page(style, page_key):
+        return HTMLResponse("", status_code=404)
+    now = datetime.now(_tz(cfg))
+    with cache_lock:
+        ctx = prep_context(now, dict(cache), cfg)
+    # 安卓 App 把**本机(手机/平板)电量**经 query 传来 → 覆盖页脚电量。
+    # 否则页脚显示的是 Kindle 经 /api/kindle-status 上报的电量(App 跑在手机上,该显示手机的)。
+    # /app/page 永远不是 Kindle 在请求(Kindle 走 /kindle/*),所以页脚电量只认本机经 query 传来的;
+    # 传不到(普通浏览器/拿不到电量权限)就清空 → 模板 `battery.has` 为假、不显示,**绝不退回显示 Kindle 的电量**。
+    kb = request.query_params.get("kbatt")
+    bat = {"level": "--", "charging": False, "has": False}
+    if kb not in (None, ""):
+        try:
+            bat = {"level": int(kb), "charging": request.query_params.get("kchg") == "1", "has": True}
+        except (ValueError, TypeError):
+            pass
+    ctx["battery"] = bat
+    ctx["page_no"], ctx["page_total"] = _page_meta(cfg, style, page_key)
+    try:
+        html = styles.render_page(style, page_key, ctx, target="android")
+    except Exception as e:
+        return HTMLResponse(f"<!doctype html><body>render error: {e}", status_code=500)
+    # 看板画布固定 800×600(与 Kindle 一致):App/浏览器端对整块画布等比缩放居中铺满,
+    # 不再按屏比重排内容(避免任意宽度下的溢出适配,见 web/app.html 的 fit())。
+    return HTMLResponse(html)
+
+
+@app.get("/web-simple", response_class=HTMLResponse)
+def web_simple(request: Request):
+    """古董浏览器(Kindle 自带 WebKit)降级页:无 JS,静态 HTML 嵌当前看板整图 + meta refresh 整页定时重载。
+    `/app` 那套现代 JS(fetch/Fullscreen/Wake Lock)在古董浏览器跑不动 → 给它这个最朴素的页。
+    页面外壳经 _auth 令牌(绝不豁免);内嵌的 `/kindle/frame.png` 本就在 _AUTH_EXEMPT 名单(给 Kindle 拉图),
+    复用即可、不另渲染。整图每 page_interval 秒由 frame.png 自动翻页,本页同节奏整页重载跟上。"""
+    from html import escape as _esc
+    cfg = cm.get()
+    interval = _interval(cfg, "server", "page_interval", 20)
+    tok = request.query_params.get("token", "") or ""
+    # meta refresh 显式带上当前令牌(古董浏览器对「无 url 的 refresh 是否保留 query」行为不一,显式最稳)。
+    refresh_url = "/web-simple" + (f"?token={_esc(tok, quote=True)}" if tok else "")
+    # 整图加时间戳破缓存:整页重载会重新请求 img,古董浏览器易缓存 PNG;frame.png 忽略未知 query,加 ?t= 无副作用。
+    img_src = f"/kindle/frame.png?t={int(time.time())}"
+    page = (
+        "<!DOCTYPE html>\n<html><head>\n"
+        '<meta charset="UTF-8">\n'
+        f'<meta http-equiv="refresh" content="{interval};url={_esc(refresh_url, quote=True)}">\n'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+        "<title>Kindle Dashboard</title>\n"
+        "<style>html,body{margin:0;padding:0;background:#000;height:100%;}"
+        ".wrap{text-align:center;}img{max-width:100%;height:auto;display:inline-block;}</style>\n"
+        "</head><body><div class=\"wrap\">"
+        f'<img src="{img_src}" alt="dashboard"></div></body></html>'
+    )
+    return HTMLResponse(page)
+
+
+# ---------- 老系统(安卓 4.x 古董 WebView)降级活页:/app-legacy 外壳 + 单页片段 ----------
+# 路线 B(服务端渲染,端上薄 ES5 轮询):legacy 模板在服务端用 float-CSS 渲染,端上 XHR 拉片段。
+# 都经 _auth 令牌(绝不豁免,绝不进 _AUTH_EXEMPT_*——能暴露看板数据)。施工图 §2。
+@app.get("/app-legacy", response_class=HTMLResponse)
+def app_legacy_shell(request: Request):
+    """老系统降级外壳(ES5 XHR 轮询 + innerHTML + 翻页)。页面内容靠 /app-legacy/page/* 轮询拉。"""
+    cfg = cm.get()
+    lang = (cfg.get("server", {}) or {}).get("language", "zh")
+    active = [p for p in schema.active_pages(cfg) if styles.has_page("legacy", p)]
+    pages = [{"key": p, "title": contract.PAGES[p]["title"]} for p in active]
+    token = request.query_params.get("token", "") or ""
+    texts = APP_PAGE_TEXTS.get(lang, APP_PAGE_TEXTS["zh"])
+    app_cfg = {
+        "token": token,
+        "interval": _interval(cfg, "server", "app_poll_interval", 5),
+        "page_interval": _interval(cfg, "server", "page_interval", 20),
+        "default": active[0] if active else "home",
+        "pages": pages,
+        "texts": {"reconnecting": texts.get("reconnecting", ""), "no_pages": texts.get("no_pages", "")},
+    }
+    path = os.path.join(WEB_DIR, "app-legacy.html")
+    if not os.path.exists(path):
+        return HTMLResponse("<h1>legacy 外壳未安装</h1>", status_code=404)
+    with open(path, encoding="utf-8") as f:
+        shell = f.read()
+    # no-store:外壳含 <style>(legacy 主题 CSS),老 WebView 会缓存住 → 改了样式设备不更新。
+    return HTMLResponse(shell.replace("__APP_CONFIG__", json.dumps(app_cfg, ensure_ascii=False)),
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/app-legacy/page/{page_key}", response_class=HTMLResponse)
+def app_legacy_page(page_key: str, request: Request):
+    """用 legacy 模板渲染单页 float-CSS 片段(target=legacy,纯 float+ES5 友好,不注入现代 android 主题)。"""
+    cfg = cm.get()
+    if not styles.has_page("legacy", page_key):
+        return HTMLResponse("", status_code=404)
+    now = datetime.now(_tz(cfg))
+    with cache_lock:
+        ctx = prep_context(now, dict(cache), cfg)
+    # legacy 跑在老安卓/浏览器上,不是 Kindle → 页脚电量只认本机经 query 传来的(老 WebView 多半给不了),
+    # 给不到就清空(不退回显示 Kindle 的电量,模板 battery.has 为假即不显示)。
+    kb = request.query_params.get("kbatt")
+    bat = {"level": "--", "charging": False, "has": False}
+    if kb not in (None, ""):
+        try:
+            bat = {"level": int(kb), "charging": request.query_params.get("kchg") == "1", "has": True}
+        except (ValueError, TypeError):
+            pass
+    ctx["battery"] = bat
+    ctx["page_no"], ctx["page_total"] = _page_meta(cfg, "legacy", page_key)
+    try:
+        html = styles.render_page("legacy", page_key, ctx, target="legacy")
+    except Exception as e:
+        return HTMLResponse(f"<div>render error: {e}</div>", status_code=500)
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
+
+# ---------- 动作接口(安卓 App 控制设备)----------
+# 全部经 _auth 令牌保护(能改你家设备,绝不豁免、绝不进 _AUTH_EXEMPT_*);只接受白名单操作。
+@app.post("/api/action/ha")
+async def action_ha(data: dict = Body(...)):
+    """控制一个 HA 实体。body {entity_id, action, value?}。
+    action/value 经 actions._resolve_action 白名单解析(开关/锁/窗帘/空调/媒体/选择/数值/按钮/安防)。"""
+    try:
+        actions.ha_action(cm.get(), data.get("entity_id", ""),
+                          data.get("action", ""), data.get("value"))
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+@app.post("/api/action/torrent")
+async def action_torrent(data: dict = Body(...)):
+    """种子暂停/恢复。body {client(下载器名), id(hash 或数字), action(pause/resume)}。"""
+    try:
+        actions.torrent_action(cm.get(), data.get("client", ""), data.get("id", ""), data.get("action", ""))
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+
+
+def _action_state(cfg):
+    """汇总所有可控目标的当前状态(供 /action-test 做「点前 → 点后」对照)。
+    各部分独立降级(铁律3):某源连不上只影响该部分、其余照常,绝不抛错。"""
+    out = {"ha": {"configured": False}, "printer": {"configured": False},
+           "torrents": {"configured": False}}
+
+    ha = (cfg or {}).get("home_assistant", {}) or {}
+    ha_url = (ha.get("url") or "").strip().rstrip("/")
+    ha_token = (ha.get("token") or "").strip()
+    ha_ready = bool(ha_url and ha_token)
+
+    pr_cfg = (cfg or {}).get("printer", {}) or {}
+    pr_prefix = (pr_cfg.get("entity_prefix") or "").strip()
+    want_printer = bool(pr_cfg.get("enabled") and pr_prefix)
+
+    # HA states 只拉一次,实体清单 + 打印机共用(失败标记成异常,各部分各自报错降级)
+    states = None
+    if ha_ready:
+        try:
+            states = homeassistant._fetch_states(ha_url, ha_token)
+        except Exception as e:
+            states = e
+
+    def _ha_err():
+        if not ha_ready:
+            return "Home Assistant 未配置(缺地址或令牌)"
+        if isinstance(states, Exception):
+            return f"读取 HA 状态失败:{states}"
+        return None
+
+    # HA 可控实体全量清单(按 kind 分组 + 只读传感器单列)
+    if ha_ready:
+        sec = {"configured": True}
+        err = _ha_err()
+        if err:
+            sec["error"] = err
+            sec["groups"] = {}; sec["readonly"] = []; sec["counts"] = {}
+        else:
+            try:
+                inv = actions.controllable_inventory(cfg)
+                sec.update(inv)
+            except Exception as e:
+                sec["error"] = f"读取 HA 实体失败:{e}"
+                sec["groups"] = {}; sec["readonly"] = []; sec["counts"] = {}
+        out["ha"] = sec
+
+    if want_printer:
+        sec = {"configured": True}
+        err = _ha_err()
+        if err:
+            sec["error"] = err
+        else:
+            try:
+                pr = homeassistant._build_printer(states, pr_prefix)
+                sec.update({"online": pr["online"], "status": pr.get("status") or "",
+                            "stage": pr.get("stage") or "", "progress": pr.get("progress") or 0,
+                            "task": pr.get("task") or "--"})
+            except Exception as e:
+                sec["error"] = f"解析打印机状态失败:{e}"
+        out["printer"] = sec
+
+    clients = [c for c in (((cfg or {}).get("downloaders", {}) or {}).get("clients", []) or [])
+               if isinstance(c, dict) and (c.get("host") or "").strip()]
+    if clients:
+        sec = {"configured": True, "items": [], "errors": []}
+        for c in clients:
+            cname = c.get("name") or c.get("host") or "?"
+            try:
+                d = downloader._ADAPTERS.get(c.get("type", "qbittorrent"), downloader._qb_fetch)(c)
+            except Exception as e:
+                sec["errors"].append(f"{cname}: {e}")
+                continue
+            for t in d.get("torrents", []):
+                sec["items"].append({"client": cname, "id": t.get("id", ""),
+                                     "name": t.get("name", ""), "state": t.get("state", ""),
+                                     "progress": t.get("progress", 0)})
+        out["torrents"] = sec
+
+    return out
+
+
+@app.get("/api/action-state")
+def api_action_state():
+    """所有可控目标的当前状态紧凑 JSON(供 /action-test 做「点前/点后」对照)。
+    经令牌(绝不豁免——暴露设备名/状态);各源独立降级。"""
+    try:
+        return {"ok": True, **_action_state(cm.get())}
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/action-test", response_class=HTMLResponse)
+def action_test_page():
+    """动作接口真机测试控制台。经令牌(绝不进 _AUTH_EXEMPT_*——能改你家设备)。"""
+    path = os.path.join(WEB_DIR, "action-test.html")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return HTMLResponse(f.read())
+    return HTMLResponse("<h1>测试页未安装</h1>", status_code=404)
 
 
 # ---------- 设置网页 API ----------
@@ -747,6 +1418,16 @@ def api_discovered():
         out.append({"key": key, "hostname": raw.get("hostname", key),
                     "fields": fields, "updated_at": raw.get("updated_at")})
     return {"devices": out}
+
+
+@app.get("/qrcode.js")
+def qrcode_lib():
+    """前端二维码库(qrcode-generator,MIT,Kazuhiko Arase)。设置页生成 App 配置二维码用,本地内联离线可用。"""
+    path = os.path.join(WEB_DIR, "qrcode.js")
+    if not os.path.exists(path):
+        return Response("// qrcode.js missing", media_type="application/javascript", status_code=404)
+    with open(path, encoding="utf-8") as f:
+        return Response(f.read(), media_type="application/javascript")
 
 
 @app.get("/setup", response_class=HTMLResponse)

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">墨水桌面看板</string>
+    <string name="setup_hint">搜索局域网里的看板服务器、扫设置页二维码,或手动填写地址和令牌。</string>
+    <string name="discover_server">🔍 搜索局域网服务器</string>
+    <string name="discovering">搜索中…</string>
+    <string name="discover_none">没发现局域网服务器。请确认看板服务在运行、手机和它同一 WiFi(路由器开了 AP 隔离会搜不到),或改用扫码/手填。</string>
+    <string name="discover_filled">已填入服务器地址。访问令牌仍需扫码或手填。</string>
+    <string name="discover_pick_title">发现多个服务器,选一个</string>
+    <string name="discover_unavailable">本机不支持局域网发现,请用扫码或手填。</string>
+    <string name="scan_qr">扫码配置(推荐)</string>
+    <string name="scan_prompt">对准看板设置页的「安卓 App」二维码</string>
+    <string name="scan_ok">已读取配置,核对后点保存</string>
+    <string name="scan_unrecognized">二维码内容无法识别,请手动填写</string>
+    <string name="label_url">服务器地址</string>
+    <string name="label_token">访问令牌(没设可留空)</string>
+    <string name="token_hint">setup 链接里 ?token= 后面那串</string>
+    <string name="save_start">保存并进入看板</string>
+    <string name="setup_note">地址和令牌只存本机(加密)。可随时在看板的「重新配置」改。</string>
+    <string name="err_need_url">请填服务器地址</string>
+    <string name="reconnecting">连不上服务器,重连中…</string>
+    <string name="retry_now">立即重试</string>
+    <string name="reconfigure">重新配置</string>
+
+    <!-- 老系统(安卓 4.x)极简配置页 -->
+    <string name="legacy_setup_hint">老系统(安卓 4.x)极简配置:手动填看板服务器地址和访问令牌即可。</string>
+    <string name="legacy_setup_note">地址和令牌只存本机。看板连不上时可在「重新配置」里改。</string>
+
+    <!-- 原生设置页(v2) -->
+    <string name="open_settings">打开设置</string>
+    <string name="cfg_title">设置</string>
+    <string name="cfg_back">返回</string>
+    <string name="cfg_save">保存</string>
+    <string name="cfg_saved">已保存,看板即将更新</string>
+    <string name="cfg_save_fail">保存失败</string>
+    <string name="cfg_local_conn">本机 / 服务器连接</string>
+    <string name="cfg_local_conn_sub">改这台设备连哪个服务器、访问令牌(只存本机)</string>
+    <string name="cfg_edit_in_web">在网页里改</string>
+    <string name="cfg_secret_hint">留空 = 不改(不显示原值)</string>
+    <string name="cfg_err_auth">访问令牌无效或缺失。请到「本机 / 服务器连接」重新扫码或填写令牌。</string>
+    <string name="cfg_err_load">读取设置失败,请检查与服务器的连接。</string>
+    <string name="cfg_saving">保存中…</string>
+    <string name="cfg_add_item">＋ 添加一项</string>
+    <string name="cfg_del_item">删除该项</string>
+    <string name="cfg_list_empty">(暂无,点下方「添加一项」)</string>
+    <string name="cfg_web_advanced">打开网页高级设置(城市搜索 / 浏览 HA 实体 / 发现设备等)</string>
+
+    <!-- 在线更新 -->
+    <string name="cfg_check_update">检查更新</string>
+    <string name="cfg_check_update_sub">从 GitHub 获取最新版并安装</string>
+    <string name="cfg_update_checking">正在检查更新…</string>
+    <string name="cfg_update_latest">已经是最新版了</string>
+    <string name="cfg_update_no_apk">最新发布里没找到安装包(.apk 附件)</string>
+    <string name="cfg_update_check_fail">检查更新失败</string>
+    <string name="cfg_update_found">发现新版本</string>
+    <string name="cfg_update_tap">点此更新</string>
+    <string name="cfg_update_no_notes">(这版没写更新说明)</string>
+    <string name="cfg_update_download">下载并安装</string>
+    <string name="cfg_update_downloading">下载中…</string>
+    <string name="cfg_update_download_fail">下载失败</string>
+    <string name="cfg_update_install_fail">拉起安装失败</string>
+    <string name="cfg_update_perm_title">需要安装权限</string>
+    <string name="cfg_update_perm_msg">安卓要求先允许本应用安装其他应用。点「去设置」打开开关后,返回再点一次「检查更新」即可。</string>
+    <string name="cfg_update_perm_go">去设置</string>
+</resources>

@@ -22,6 +22,7 @@ server:
   render_rotate: 270         # 渲染后旋转成竖屏写墨水屏(270=顺时针默认;90=逆时针;0=不转)
   render_grayscale: true
   render_interval: 30        # 多久重渲染一次看板图(秒;刷新时钟与已变数据,与采集解耦)
+  app_poll_interval: 5       # 安卓 App 活 HTML 每隔几秒拉一次最新页面(触控版;与 Kindle 出图无关)
   access_token: ""           # 设置页访问令牌;安装/首次启动自动生成(留空=不鉴权,不推荐)
 
 # 天气(和风天气 QWeather)——填了 key+location 才出天气
@@ -69,6 +70,38 @@ printer:
   enabled: false
   entity_prefix: ""          # 设置页可自动扫描选择;也可手填,如 a1_03919c451100824
 
+# 资讯(RSS)——默认预置 AIHOT(AI 行业每日精选),装好就多一页;清空 feeds 即关闭
+# 自适应填充一屏;无需账号/密钥。想加源:往 feeds 里再加 {url, name}
+# 轮换跟看板翻页节奏走:每轮到资讯页换一批新的、停留期间不变(无独立计时)
+news:
+  feeds:
+    - url: "https://aihot.virxact.com/feed.xml"
+      name: "AIHOT"
+  rotate: random             # 轮播方式:random 随机 / time 按时间(新→旧)
+  interval: 1800             # 多久从 RSS 拉一次(秒);资讯变化慢,建议 ≥1800
+
+# 下载器(qBittorrent / Transmission,可多台)——填了至少一个才出「下载」页
+# 所有种子合并显示;账号密码只存本地。手填示例(去掉注释填进 clients):
+downloaders:
+  clients: []
+  #   - name: 群晖 qB
+  #     type: qbittorrent     # qbittorrent / transmission
+  #     host: 192.168.x.x
+  #     port: 8080            # qB 默认 8080;Transmission 默认 9091
+  #     username: admin
+  #     password: ""          # 只存本地
+  rows: 8                     # 种子列表最多显示几条(活跃优先;全局统计仍含全部)
+  interval: 15               # 采集间隔(秒);下载变化快,建议 10~30
+
+# 音乐(Apple Music / Music.app)——显示 Mac 当前播放;由 Mac 上的 Music agent 推送
+# 启用后即使没在放歌也会显示空状态页。采集 agent 为后续独立任务,此处仅控制是否启用页面
+music:
+  enabled: false
+  interval: 5                # Mac Music agent 上报间隔(秒);建议 2~5
+  pause_idle_after: 300      # 暂停超过多久进入专辑封面墙;0=关闭
+  artwork_cache_limit: 120   # 服务端最多缓存多少张历史专辑封面
+  artwork_wall_count: 20     # 封面墙最多抽取多少张缓存封面
+
 # 智能家居实体墙(经 Home Assistant)——选了实体才出这一页
 # 推荐用设置网页搜实体添加;手填示例(去掉注释填进 entities):
 ha_page:
@@ -77,27 +110,20 @@ ha_page:
   #     name: 客厅灯        # 留空用 HA 友好名
   #     icon: ""            # 留空用 HA 自带图标
 
-# 设备监控 ——被监控机 Windows/Linux/Mac 均可。本机直读;远程每台二选一(推/拉)
-# platform: auto/linux/macos/windows —— 采集脚本按它分;local/push 可自检,ssh 建议明确选
+# 设备监控 ——被监控机 Windows/Linux/Mac 均可。本机直读(local);远程每台用 push(装 agent 上报)
+# platform: auto/linux/macos/windows —— 采集脚本按它分;local/push 均可自检
 devices:
   machines: []
-  interval: 30               # 服务端采集间隔(秒;本机直读/SSH拉)。push 设备的上报间隔由目标机 agent 自己定
-  offline_after: 180         # push 设备超过这么久没上报就判离线、从看板撤下(目标机关机/断网自动消失)。本机直读/SSH 不受影响
+  interval: 30               # 服务端采集间隔(秒;本机直读)。push 设备的上报间隔由目标机 agent 自己定
+  offline_after: 180         # push 设备超过这么久没上报就判离线、从看板撤下(目标机关机/断网自动消失)。本机直读不受影响
   # 示例(去掉注释填进 machines):
   #   - name: 这台Mac
-  #     mode: local           # 本机直读,既不装 agent 也不用 SSH
+  #     mode: local           # 本机直读,既不装 agent 也不交密码
   #     platform: auto
   #   - name: NAS
   #     mode: push            # 目标机装 agent 上报,不交密码;Windows 友好
   #     platform: linux
   #     host: 192.168.x.x
-  #   - name: 老服务器
-  #     mode: ssh             # 服务端 SSH 进去读,目标机零安装
-  #     platform: linux
-  #     host: 192.168.x.x
-  #     ssh_user: user
-  #     ssh_port: 22
-  #     ssh_password: ""      # 只存本地
 
 # 页面与风格
 display:

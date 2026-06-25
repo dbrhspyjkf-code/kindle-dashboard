@@ -59,6 +59,9 @@
   'presence': '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
   'text': '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>'
 } -%}
+{# 可控 kind(android 点卡→/api/action/ha);其余只读卡点了看详情 #}
+{%- set DIRECT = ['toggle','lock','scene','button'] -%}
+{%- set PANEL = ['cover','climate','media','select','number','alarm'] -%}
 {%- set cards = ha.cards if ha else [] -%}
 {%- set on_n = cards|selectattr('on')|list|length -%}
 <div class="cluster"><div class="ttl"><span class="chip">HA</span>{{ t.ha_title }}</div><div class="meta tnum">{{ now }}</div></div>
@@ -68,13 +71,13 @@
 {%- if n > 12 -%}{%- set cols = 5 -%}{%- elif ce > 4 -%}{%- set cols = 4 -%}{%- elif ce < 1 -%}{%- set cols = 1 -%}{%- else -%}{%- set cols = ce -%}{%- endif -%}
 <div class="main"><div class="hagrid" style="grid-template-columns:repeat({{ cols }}, 1fr);">
 {% for c in cards %}
-  <div class="tile {{ 'on' if c.on }}">
+  <div class="tile {{ 'on' if c.on }}"{% if target=='android' %}{% if c.kind in DIRECT %} data-action="ha" data-entity="{{ c.entity_id }}" data-cmd="{% if c.kind=='lock' %}{{ 'off' if c.on else 'on' }}{% elif c.kind=='scene' %}activate{% elif c.kind=='button' %}press{% else %}toggle{% endif %}"{% elif c.kind in PANEL %} data-panel="{{ c.kind }}" data-entity="{{ c.entity_id }}" data-name="{{ c.name }}" data-meta='{{ (c.meta or {})|tojson }}'{% else %} data-detail="{{ c.name }}" data-detail-title="{{ c.name }}" data-detail-rows="{{ t.ha_on_suffix if c.on else '' }}{% if c.value %}{{ c.value }}{{ c.unit }}{% else %}{{ c.state_text }}{% endif %}{% if c.sub %}|{{ c.sub }}{% endif %}"{% endif %}{% endif %}>
   {% if c.kind == 'sensor' %}
     {% set p = [c.value|float(0), 100]|min %}
-    <svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="none" stroke="#dadada" stroke-width="5"/>{% if c.unit == '%' %}<circle cx="30" cy="30" r="24" fill="none" stroke="#000" stroke-width="5" stroke-dasharray="{{ (p/100*150.8)|round(1) }} 999" transform="rotate(-90 30 30)"/>{% endif %}<text x="30" y="32" text-anchor="middle" font-size="15" font-weight="800">{{ c.value or '--' }}</text><text x="30" y="43" text-anchor="middle" font-size="8" fill="#6c6c6c" font-weight="600">{{ c.unit }}</text></svg>
+    <svg class="ring" viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="none" stroke="#dadada" stroke-width="5"/>{% if c.unit == '%' %}<circle cx="30" cy="30" r="24" fill="none"{% if target=='android' %} stroke="var(--a-accent)"{% else %} stroke="#000"{% endif %} stroke-width="5" stroke-dasharray="{{ (p/100*150.8)|round(1) }} 999" transform="rotate(-90 30 30)"/>{% endif %}<text x="30" y="32" text-anchor="middle" font-size="15" font-weight="800">{{ c.value or '--' }}</text><text x="30" y="43" text-anchor="middle" font-size="8" fill="#6c6c6c" font-weight="600">{{ c.unit }}</text></svg>
     <div class="nm">{{ c.name }}</div>
   {% else %}
-    {% set glyph = ICONS.get(c.icon) or KIND_ICONS.get(c.kind) or KIND_ICONS['text'] %}<div class="ind"><span class="ic">{{ (S + glyph + '</svg>')|safe }}</span></div>
+    {% set glyph = ICONS.get(c.icon) or KIND_ICONS.get(c.kind) or KIND_ICONS['text'] %}<div class="ind{% if target=='android' and c.on %} a-fill{% endif %}"><span class="ic">{{ (S + glyph + '</svg>')|safe }}</span></div>
     <div class="nm">{{ c.name }}</div>
     <div class="st">{{ c.state_text or '--' }}</div>
     {% if c.sub %}<div class="sub">{{ c.sub }}</div>{% endif %}
@@ -85,5 +88,5 @@
 {% else %}
 <div class="main"><div class="haempty"><div class="big">{{ t.ha_subtitle }}</div><div>{{ t.ha_empty_hint }}</div></div></div>
 {% endif %}
-<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if cards %}{{ on_n }} {{ t.ha_on_suffix }} · {{ cards|length }} {{ t.ha_entities_suffix }}{% endif %}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if cards %}{{ on_n }} {{ t.ha_on_suffix }} · {{ cards|length }} {{ t.ha_entities_suffix }}{% endif %}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span>{{ page_no }}/{{ page_total }}</span></div>
 </body></html>

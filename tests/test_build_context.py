@@ -209,6 +209,30 @@ def test_empty_cache_degrades_without_error():
     assert ctx["battery"]["has"] is False
 
 
+def test_news_rotation_tied_to_page_cycle():
+    """资讯轮换跟翻页节奏走:取条周期 = page_interval × 启用页数。
+    同一周期内任意时刻 → 同一批(停留期间不跳);跨到下一周期 → 推进(time 模式 +1,必不同)。
+    回归 2026-06-18:旧 `rotate_interval` 独立计时会让 news 看着自己跳。"""
+    from server.config import schema
+    cfg = schema.default_config()
+    cfg["server"]["page_interval"] = 20
+    cfg["weather"]["key"] = "x"; cfg["weather"]["location"] = "101010100"   # home 就绪
+    cfg["ai_usage"]["enabled"] = True                                        # ai 就绪
+    cfg["news"]["rotate"] = "time"                                           # 顺序,断言"跨周期推进"才确定
+    cache = {"news_items": [{"title": f"n{i}", "summary": "s", "source": "AIHOT",
+                             "category": "", "link": "", "ts": 9000 - i} for i in range(30)]}
+    pages = schema.active_pages(cfg)
+    assert "news" in pages and len(pages) >= 3                               # home+ai+news 都在
+    period = 20 * len(pages)                                                 # = build_context 内部算法
+
+    def start(ts):
+        return bc.prep_context(datetime.fromtimestamp(ts), dict(cache), cfg)["news"]["index"]
+
+    base = period * 1000                                                     # 落在桶边界
+    assert start(base + 1) == start(base + period // 2) == start(base + period - 1)   # 同周期=同批
+    assert start(base + period + 1) != start(base + 1)                       # 跨周期=推进
+
+
 def test_device_rename_and_field_filter():
     """配置可重命名设备 + 勾选显示项。"""
     cfg = {"devices": {"machines": [

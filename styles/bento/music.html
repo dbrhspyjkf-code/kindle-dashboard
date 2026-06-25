@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+.music-page.android .cover-img{filter:contrast(1.03) saturate(1.05);}
+.music-page.static .cover-img{filter:grayscale(1) contrast(1.08);}
+.music-grid{grid-template-columns:288px 1fr;grid-template-rows:minmax(0,1fr) 116px 88px;}
+.c-cover{grid-column:1;grid-row:1 / span 3;padding:16px;}
+.c-track{grid-column:2;grid-row:1;justify-content:center;}
+.c-progress{grid-column:2;grid-row:2;}
+.c-tags{grid-column:2;grid-row:3;padding:12px 14px;}
+.cover-stack{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px;}
+.cover-box{width:100%;aspect-ratio:1 / 1;border-radius:14px;overflow:hidden;background:#d8d8d8;flex-shrink:0;}
+.cover-img{display:block;width:100%;height:100%;object-fit:cover;}
+.cover-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:
+  radial-gradient(circle at center,#f8f8f8 0 30px,transparent 31px),
+  repeating-linear-gradient(135deg,#bdbdbd 0,#bdbdbd 2px,#e9e9e9 2px,#e9e9e9 7px);}
+.cover-empty svg{opacity:.65;}
+.track-top{display:flex;align-items:baseline;justify-content:space-between;gap:14px;flex-shrink:0;}
+.state-chip{font-size:11px;font-weight:800;letter-spacing:.8px;background:var(--ink);color:#fff;border-radius:18px;padding:4px 12px;white-space:nowrap;}
+.song{font-family:'Noto Serif CJK SC','Songti SC',serif;font-size:43px;font-weight:900;line-height:1.08;letter-spacing:0;margin-top:10px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.artist{font-size:24px;font-weight:800;line-height:1.18;margin-top:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.album{font-size:15px;font-weight:700;line-height:1.35;color:var(--ink3);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.progress-card{justify-content:center;}
+.progress-line{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:12px;}
+.progress-line .big{font-size:24px;font-weight:900;letter-spacing:0;}
+.progress-line .small{font-size:13px;font-weight:800;color:var(--ink3);}
+.music-page.static .live-only{display:none;}
+.music-page.android .static-only{display:none;}
+.tag-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;min-height:0;}
+.tag-grid .mini{min-height:64px;padding:10px 12px;}
+.tag-grid .v{font-size:15px;font-weight:800;line-height:1.16;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.idle-grid{grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(3,1fr);}
+.idle-wall{grid-column:1 / span 5;grid-row:1 / span 3;padding:12px;background:#f7f7f7;}
+.wall-grid{flex:1;min-height:0;display:grid;gap:12px;place-content:center;overflow:hidden;}
+.wall-grid.wall-one{grid-template-columns:420px;}
+.wall-grid.wall-two{grid-template-columns:repeat(2,300px);}
+.wall-grid.wall-four{grid-template-columns:repeat(2,232px);}
+.wall-grid.wall-nine{grid-template-columns:repeat(4,148px);grid-template-rows:repeat(3,148px);}
+.wall-grid.wall-sixteen{grid-template-columns:repeat(4,112px);}
+.wall-grid.wall-twenty{grid-template-columns:repeat(5,112px);}
+.wall-grid.wall-nine .wall-tile:first-child{grid-column:span 2;grid-row:span 2;}
+.wall-grid.wall-sixteen .wall-tile{width:112px;}
+.wall-grid.wall-twenty .wall-tile{width:112px;}
+.wall-tile{border-radius:14px;background:#e5e5e5;overflow:hidden;}
+.wall-tile:nth-child(3n+1){background-image:repeating-linear-gradient(45deg,#bcbcbc 0,#bcbcbc 2px,#eeeeee 2px,#eeeeee 8px);}
+.wall-tile:nth-child(3n+2){background-image:radial-gradient(circle at center,#f7f7f7 0 18px,transparent 19px),linear-gradient(135deg,#d6d6d6,#efefef);}
+.wall-tile:nth-child(3n){background-image:repeating-linear-gradient(-45deg,#c8c8c8 0,#c8c8c8 1px,#f3f3f3 1px,#f3f3f3 6px);}
+.wall-tile{aspect-ratio:1 / 1;}
+.wall-tile img{display:block;width:100%;height:100%;object-fit:contain;background:#fff;filter:grayscale(1) contrast(1.08);}
+.android .wall-tile img{filter:contrast(1.03) saturate(1.05);}
+.idle-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.idle-empty .big{font-size:42px;font-weight:900;line-height:1;margin-bottom:10px;}
+.idle-empty .hint{font-size:13px;font-weight:800;color:var(--ink3);}
+</style></head><body class="music-page {% if target=='android' %}android{% else %}static{% endif %}">
+<div class="head"><div class="ttl">{{ t.music_title if music.idle_wall or not music.has_track else t.page_music }}<span class="sub">{{ t.music_snapshot }}</span></div><div class="meta tnum">{{ now }}</div></div>
+{% if music.has_track and not music.idle_wall %}
+<div class="bento music-grid">
+  <div class="card hero c-cover">
+    <div class="cover-stack">
+      <div class="cover-box">
+        {% if music.artwork_url %}
+        <img class="cover-img" src="{{ music.artwork_url }}" alt="">
+        {% else %}
+        <div class="cover-empty" aria-hidden="true">
+          <svg width="88" height="88" viewBox="0 0 24 24" fill="none" stroke="#6e6e6e" stroke-width="1.35">
+            <circle cx="7.5" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            <path d="M10.5 18V5.5l10.5-2.2V14" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-track">
+    <div class="track-top">
+      <div class="lab" style="margin-bottom:0;">{{ t.music_now_spinning }}</div>
+      <span class="state-chip">{{ music.state_text }}</span>
+    </div>
+    <div class="song">{{ music.name }}</div>
+    {% if music.artist %}<div class="artist">{{ music.artist }}</div>{% endif %}
+    <div class="album">{% if music.album %}{{ music.album }}{% endif %}{% if music.album and music.year %} · {% endif %}{% if music.year %}{{ music.year }}{% endif %}</div>
+  </div>
+
+  <div class="card c-progress progress-card">
+    <div class="lab live-only">{{ t.music_progress }}</div>
+    <div class="lab static-only">{{ t.music_length }}</div>
+    <div class="progress-line live-only"><span class="big tnum" data-music-position>{{ music.position_text }}</span><span class="small tnum">{{ music.duration_text }}</span></div>
+    <div class="progress-line static-only"><span class="big tnum">{{ music.duration_text }}</span></div>
+    <div class="pill live-only"><i data-music-bar style="width:{{ music.progress_pct }}%"></i></div>
+  </div>
+
+  <div class="card plain c-tags">
+    <div class="tag-grid">
+      <div class="mini"><div class="l">{{ t.music_shuffle }}</div><div class="v">{{ music.shuffle_text }}</div></div>
+      <div class="mini"><div class="l">{{ t.music_repeat }}</div><div class="v">{{ music.repeat_text }}</div></div>
+      <div class="mini"><div class="l">{{ t.music_lbl_genre }}</div><div class="v">{% if music.genre %}{{ music.genre }}{% else %}--{% endif %}</div></div>
+      <div class="mini"><div class="l">{{ t.music_track }}</div><div class="v tnum">{% if music.track_count %}{{ music.track_number }} / {{ music.track_count }}{% else %}--{% endif %}</div></div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="bento music-grid idle-grid" aria-label="{{ t.music_title }}">
+  <div class="card idle-wall">
+    {% if music.artwork_wall %}
+    <div class="wall-grid wall-{{ music.artwork_wall_mode }}">
+      {% for art in music.artwork_wall %}<div class="wall-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="idle-empty"><div class="big">{{ t.music_title }}</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ music.updated_at or time_hm }}</b></span><span>{{ t.music_snapshot }}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span><b>{{ page_no }} / {{ page_total }}</b> {{ t.page_music }}</span></div>
+{% if target=='android' and music.has_track and not music.idle_wall %}
+<script>
+(function(){
+  var playing = {{ 'true' if music.state == 'playing' else 'false' }};
+  var duration = {{ music.duration or 0 }};
+  var position = {{ music.position or 0 }};
+  var sampledAt = {{ music.sampled_at or 0 }};
+  var initialDelta = sampledAt > 0 ? (Date.now() / 1000 - sampledAt) : 0;
+  if (!playing || Math.abs(initialDelta) > 300) initialDelta = 0;
+  var startedAt = Date.now() / 1000 - position - initialDelta;
+  var posEl = document.querySelector("[data-music-position]");
+  var barEl = document.querySelector("[data-music-bar]");
+  function two(n){ return n < 10 ? "0" + n : "" + n; }
+  function fmt(sec){
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    if (h) return h + ":" + two(m) + ":" + two(s);
+    return m + ":" + two(s);
+  }
+  function tick(){
+    var pos = playing ? Date.now() / 1000 - startedAt : position;
+    if (duration > 0) pos = Math.min(duration, pos);
+    var text = fmt(pos);
+    if (posEl) posEl.textContent = text;
+    if (barEl && duration > 0) barEl.style.width = Math.max(0, Math.min(100, pos / duration * 100)) + "%";
+  }
+  tick();
+  if (playing) setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+</body></html>

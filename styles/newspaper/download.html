@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:传输清单(报纸航运表)。报头 + 全局带(栏线分隔的 5 个数字)+ 清单表
+   (名称 | 进度条 | ↓↑ | 分享率 | 状态),细栏线密排。纯灰度,进度条实心填充。 */
+.gl{flex-shrink:0;display:flex;border-bottom:2px solid var(--ink);padding-bottom:9px;margin-bottom:9px;}
+.gl .f{flex:1;padding:0 12px;border-left:1px solid var(--line2);min-width:0;}
+.gl .f:first-child{padding-left:0;border-left:none;}
+.gl .f .k{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .f .v{font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1.1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .f .v small{font-size:11px;color:var(--ink3);font-weight:700;}
+.manifest{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
+.mhead,.mrow{display:flex;align-items:center;gap:11px;}
+.mhead{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);
+  border-bottom:1.5px solid var(--ink);padding-bottom:4px;flex-shrink:0;}
+.mrow{padding:6px 0;border-bottom:1px solid var(--line2);}
+.c-nm{flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.c-pr{width:148px;flex-shrink:0;display:flex;align-items:center;gap:8px;}
+.c-pr .bar{flex:1;height:9px;border:1px solid var(--ink);overflow:hidden;}
+.c-pr .bar > i{display:block;height:100%;background:var(--ink);}
+.c-pr .pc{font-size:11px;font-weight:800;width:30px;text-align:right;}
+.c-sp{width:118px;flex-shrink:0;font-size:11px;color:var(--ink3);font-weight:600;white-space:nowrap;overflow:hidden;}
+.c-sp b{color:var(--ink2);font-weight:700;}
+.c-rt{width:40px;flex-shrink:0;font-size:13px;font-weight:800;text-align:right;}
+.c-st{width:54px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--ink2);text-align:right;}
+.news-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.news-empty .big{font-size:30px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+</style></head><body>
+{%- set d = download -%}
+<div class="plate"><div class="name">{{ t.dl_title }}<span class="sm">{{ t.dl_sm }}</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>SEEDBOX · TRANSFER</span><span>{% if d.errors %}{{ d.errors|length }} {{ t.dl_offline }}{% else %}{{ d.active }} / {{ d.total }} {{ t.dl_active }}{% endif %}</span></div>
+<div class="gl">
+  <div class="f"><div class="k">↓ {{ t.dl_dl }}</div><div class="v tnum">{{ d.dl_speed }}</div></div>
+  <div class="f"><div class="k">↑ {{ t.dl_up }}</div><div class="v tnum">{{ d.up_speed }}</div></div>
+  <div class="f"><div class="k">{{ t.dl_uploaded }}</div><div class="v tnum">{{ d.uploaded }}</div></div>
+  <div class="f"><div class="k">{{ t.dl_ratio }}</div><div class="v tnum">{{ d.ratio }}</div></div>
+  <div class="f"><div class="k">{{ t.dl_active }}</div><div class="v tnum">{{ d.active }}<small> / {{ d.total }}</small></div></div>
+</div>
+{% if d.torrents %}
+<div class="manifest">
+  <div class="mhead"><span class="c-nm">NAME</span><span class="c-pr">PROGRESS</span><span class="c-sp">↓ / ↑</span><span class="c-rt">RATIO</span><span class="c-st">STATE</span></div>
+  {% for tr in d.torrents %}
+  <div class="mrow">
+    <span class="c-nm">{{ tr.name }}</span>
+    <span class="c-pr"><span class="bar"><i class="{% if target=='android' and tr.state == 'downloading' %}a-fill{% endif %}" style="width:{{ tr.progress }}%;"></i></span><span class="pc tnum">{{ tr.progress }}</span></span>
+    <span class="c-sp tnum">↓<b>{{ tr.dl }}</b> ↑<b>{{ tr.up }}</b></span>
+    <span class="c-rt tnum">{{ tr.ratio }}</span>
+    <span class="c-st">{{ tr.state_text }}</span>
+    {% if target=='android' %}<button class="act ghost" style="flex-shrink:0;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="news-empty"><div class="big">{{ t.dl_empty }}</div></div>
+{% endif %}
+<div class="folio"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span>{{ t.foot_page_download }} · {{ page_no }}/{{ page_total }}</span></div>
+</body></html>

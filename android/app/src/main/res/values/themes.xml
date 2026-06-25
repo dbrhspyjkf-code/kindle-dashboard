@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppCompat 主题(SetupActivity 用 AppCompatActivity;MainActivity 全屏系统 WebView)。 -->
+    <style name="Theme.KindleDash" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#2f6fed</item>
+        <item name="colorPrimaryDark">#1f4fbf</item>
+        <item name="colorAccent">#2f6fed</item>
+    </style>
+
+    <!-- 看板主界面启动主题:冷启动时显示启动画面背景(深底+看板字形),内容(WebView)绘出后即被盖住。
+         Android 12+ 由 values-v31 的 SplashScreen API 覆盖此项。 -->
+    <style name="Theme.KindleDash.Splash" parent="Theme.KindleDash">
+        <item name="android:windowBackground">@drawable/splash_bg</item>
+    </style>
+
+    <!-- 原生设置页 / 应用内网页:不依赖 AppCompat(用 android.app.* 控件),浅色无标题栏。 -->
+    <style name="Theme.KindleDash.Native" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#2f6fed</item>
+        <item name="android:colorPrimaryDark">#1f4fbf</item>
+        <item name="android:colorAccent">#2f6fed</item>
+    </style>
+</resources>

@@ -1,0 +1,45 @@
+{# legacy 打印机(浅色 editorial,只读):左=进度环 + 任务,右=温度卡 + 详情。4.2 固定坐标分栏。 #}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ now }}</div>
+    <div class="kicker">{{ t.printer_kicker }}</div>
+    <div class="title">{{ t.printer_brand }} {{ printer.name if printer else "A1" }}</div>
+  </div>
+  {% if printer and printer.online and printer.printing %}
+  {% set off = (263.9 * (100 - printer.progress) / 100)|round(1) %}
+  <div class="main">
+    <div class="abscols">
+      <div class="acol printer-l">
+        <svg class="ring" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#d2cec5" stroke-width="8"/>
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#151515" stroke-width="8" stroke-dasharray="263.9" stroke-dashoffset="{{ off }}" transform="rotate(-90 50 50)"/>
+          <text x="50" y="47" text-anchor="middle" font-size="24" font-weight="800">{{ printer.progress }}%</text>
+          <text x="50" y="62" text-anchor="middle" font-size="8" fill="#666" font-weight="600">{{ t.printer_done }}</text>
+        </svg>
+        <div class="fname">{{ printer.task }}</div>
+        <div class="pr-mid"><span class="pstate">{{ printer.state_text }}</span></div>
+        <div class="player tnum">{{ t.printer_layer_prefix }} {{ printer.layer }} / {{ printer.total_layer }} {{ t.printer_layer_suffix }}</div>
+        <div class="peta tnum">{{ t.printer_remaining }} {{ printer.remaining_text }}{% if printer.eta_clock and printer.eta_clock != '--' %} · {{ t.printer_finish_at }} {{ printer.eta_clock }}{% endif %}</div>
+      </div>
+      <div class="acol printer-r">
+        <div class="slabel">{{ t.printer_temp }}</div>
+        <div class="temp-row clear">
+          <div class="temp l1"><div class="box"><div class="l">{{ t.printer_nozzle }}</div><div class="v tnum">{{ printer.nozzle }}<span class="u">°C</span></div><div class="tgt tnum">{{ t.printer_target }} {{ printer.nozzle_t }}°C</div></div></div>
+          <div class="temp l2"><div class="box"><div class="l">{{ t.printer_bed }}</div><div class="v tnum">{{ printer.bed }}<span class="u">°C</span></div><div class="tgt tnum">{{ t.printer_target }} {{ printer.bed_t }}°C</div></div></div>
+        </div>
+        <div class="rule"></div>
+        <div class="slabel">{{ t.printer_details }}</div>
+        <div class="meta-row clear"><span class="v">{{ printer.speed }}</span><span class="k">{{ t.printer_speed }}</span></div>
+        <div class="meta-row clear"><span class="v">{{ printer.material }}</span><span class="k">{{ t.printer_material }}</span></div>
+        <div class="meta-row clear"><span class="v tnum">{{ printer.weight }} g</span><span class="k">{{ t.printer_filament }}</span></div>
+        <div class="meta-row clear"><span class="v tnum">{{ printer.cooling_fan }}%</span><span class="k">{{ t.printer_cooling_fan }}</span></div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="main"><div class="empty-box printer-empty"><div class="big">{{ printer.state_text if printer and printer.online else t.printer_offline }}</div><div>{{ t.printer_no_task }}</div>
+  {% if printer %}<div class="printer-temp-line">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}
+  </div></div>
+  {% endif %}
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%{% endif %}</span><span>{{ t.foot_updated }} {{ time_hm }}</span></div>
+</div>

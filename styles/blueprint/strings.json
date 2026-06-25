@@ -33,6 +33,12 @@
     "ha_title": "家庭概览 / 智能家居",
     "ha_smart_home": "智能家居",
     "ha_empty_hint": "在设置页添加 Home Assistant 实体",
+    "news_empty_big": "暂无资讯",
+    "news_empty_hint": "已预置 AIHOT,联网后自动加载",
+    "dl_title": "下载 / TRANSFERS",
+    "dl_active": "活动",
+    "dl_offline": "个下载器离线",
+    "dl_empty": "暂无下载任务",
     "printer_title": "3D 打印",
     "printer_progress": "作业进度",
     "printer_remaining": "剩余",
@@ -47,7 +53,15 @@
     "printer_fan": "冷却风扇 FAN",
     "printer_idle": "打印机当前无任务",
     "printer_nozzle_short": "喷头",
-    "printer_bed_short": "热床"
+    "printer_bed_short": "热床",
+    "music_now": "正在播放",
+    "music_artwork": "封面",
+    "music_ref": "当前曲目",
+    "music_progress": "进度",
+    "music_length": "时长",
+    "music_idle": "未在播放",
+    "music_idle_hint": "当前没有正在播放的音乐",
+    "music_snapshot": "快照"
   },
   "en": {
     "home_title": "HOME",
@@ -83,6 +97,12 @@
     "ha_title": "SMART HOME",
     "ha_smart_home": "SMART HOME",
     "ha_empty_hint": "Add Home Assistant entities in settings",
+    "news_empty_big": "NO NEWS",
+    "news_empty_hint": "AIHOT preloaded; loads once online",
+    "dl_title": "DOWNLOADS",
+    "dl_active": "Active",
+    "dl_offline": "offline",
+    "dl_empty": "NO ACTIVE TASKS",
     "printer_title": "3D PRINT",
     "printer_progress": "JOB PROGRESS",
     "printer_remaining": "Remaining",
@@ -97,6 +117,14 @@
     "printer_fan": "FAN",
     "printer_idle": "Printer is idle",
     "printer_nozzle_short": "Nozzle",
-    "printer_bed_short": "Bed"
+    "printer_bed_short": "Bed",
+    "music_now": "NOW PLAYING",
+    "music_artwork": "ARTWORK",
+    "music_ref": "CURRENT TRACK",
+    "music_progress": "PROGRESS",
+    "music_length": "LENGTH",
+    "music_idle": "NO TRACK",
+    "music_idle_hint": "Nothing is playing right now",
+    "music_snapshot": "SNAPSHOT"
   }
 }

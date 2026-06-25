@@ -37,20 +37,25 @@ python3 -m venv "$VENV" 2>/tmp/venv_err || {
 "$PY" -c "import fastapi,uvicorn,httpx,PIL,lunardate,jinja2,yaml" 2>/dev/null || die "依赖导入校验失败,请把上面输出贴给我。"
 echo "✓ 依赖就绪"
 
-# 3b. 渲染引擎:复用 find_chrome(系统 Chrome + playwright 自带 chromium 都探测)
+# 3b. 渲染引擎 = chrome-headless-shell(macOS 渲染不弹 Dock;完整 Chrome 的 --headless=new 会让 Dock 周期抖动)
 echo "==> 检测渲染引擎..."
-CHROME=$(cd "$REPO" && "$PY" -c "from server.render.pipeline import find_chrome; print(find_chrome())" 2>/dev/null)
-if [ -n "$CHROME" ]; then
-  echo "✓ 渲染引擎就绪:$CHROME"
+KIND=$(cd "$REPO" && "$PY" -c "from server.render.pipeline import find_chrome,is_headless_shell as s;c=find_chrome();print('SHELL' if c and s(c) else ('FULL' if c else 'NONE'))" 2>/dev/null)
+if [ "$KIND" = "SHELL" ]; then
+  echo "✓ 渲染引擎就绪(chrome-headless-shell,不弹 Dock)"
 else
-  echo "未检测到渲染引擎(Chrome/Chromium),用于把页面渲染成图。"
-  printf "是否自动下载内置渲染引擎?(约 150MB,装进项目环境、不动系统)[Y/n] "
+  if [ "$KIND" = "FULL" ]; then
+    echo "已装完整 Chrome,但它渲染时会让 macOS Dock 周期性闪图标。"
+  else
+    echo "未检测到渲染引擎。"
+  fi
+  echo "建议用专用无头壳 chrome-headless-shell(约 100MB,不弹 Dock、更轻)。"
+  printf "现在下载?[Y/n] "
   read -r ans
   case "$ans" in
-    [Nn]*) echo "⚠ 已跳过。渲染会失败,直到你装好 Chrome,或重跑本脚本选择下载。" ;;
-    *) echo "下载中(约几分钟,取决于网速)..."
-       "$VENV/bin/playwright" install chromium && echo "✓ 渲染引擎已就绪" \
-         || echo "⚠ 下载失败,可稍后重跑:$VENV/bin/playwright install chromium" ;;
+    [Nn]*) [ "$KIND" = "FULL" ] && echo "⚠ 跳过。将用系统 Chrome 渲染,Dock 会周期闪一下(可重跑本脚本下载消除)。" \
+                                || echo "⚠ 跳过。当前没有渲染引擎,看板无法出图,直到你下载或装 Chrome。" ;;
+    *) bash "$REPO/installers/macos/get-headless-shell.sh" && echo "✓ 无头引擎就绪" \
+         || echo "⚠ 下载失败(国内访问 Google 慢/不通时先 export https_proxy=http://代理:端口),可稍后重跑本脚本。" ;;
   esac
 fi
 

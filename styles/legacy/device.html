@@ -1,0 +1,46 @@
+{# legacy 设备监控(浅色 editorial):每台一描边卡。1 台居中,奇数末行居中;显式 px 宽高避开 4.2 塌陷。 #}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ now }}{% if device.machines %}<br><span class="ink3">{{ device.machines|length }}</span>{% endif %}</div>
+    <div class="kicker">{{ t.dev_kicker }}</div>
+    <div class="title">{{ t.dev_title }}</div>
+  </div>
+  {% if device.machines %}
+  {%- set n = device.machines|length -%}
+  {%- if n == 1 -%}
+    {%- set cols = 1 -%}{%- set rows = 1 -%}{%- set cw = 560 -%}{%- set rh = 320 -%}
+  {%- else -%}
+    {%- set cols = 2 -%}{%- set rows = ((n + 1) // 2) -%}{%- set cw = 460 -%}{%- set rh = (470.0 / rows)|round(0)|int -%}
+  {%- endif -%}
+  {%- set gw = cols * cw -%}
+  {%- set gh = rows * rh -%}
+  {%- set ml = ((920 - gw) / 2.0)|round(0)|int -%}
+  {%- set mt = ((470 - gh) / 2.0)|round(0)|int -%}
+  <div class="main">
+    <div class="grid" style="width:{{ gw }}px;height:{{ gh }}px;margin-left:{{ ml }}px;margin-top:{{ mt }}px">
+      {% for grp in device.machines|batch(cols) %}
+      {%- set row_len = grp|length -%}
+      {%- set row_pad = ((cols - row_len) * cw / 2.0)|round(0)|int -%}
+      <div class="grow" style="height:{{ rh }}px{% if row_pad > 0 %};padding-left:{{ row_pad }}px{% endif %}">
+        {% for m in grp %}
+        <div class="gcell" style="width:{{ cw }}px;height:{{ rh }}px">
+          <div class="card">
+            <div class="dev-head clear"><span class="st tnum">{{ m.mem_used }} / {{ m.mem_total }}</span><span class="nm ell">{{ m.name }}</span></div>
+            {% if m.show.cpu %}<div class="mrow"><div class="top clear"><span class="v tnum">{{ m.cpu }}%</span><span class="k">CPU</span></div><div class="bar thin"><i style="width:{{ m.cpu }}%"></i></div></div>{% endif %}
+            {% if m.show.mem %}<div class="mrow"><div class="top clear"><span class="v tnum">{{ m.mem }}% <small>{{ m.mem_used }}/{{ m.mem_total }}</small></span><span class="k">{{ t.dev_mem }}</span></div><div class="bar thin"><i style="width:{{ m.mem }}%"></i></div></div>{% endif %}
+            {% if m.show.net or m.show.disk_io %}<div class="io-line tnum">{% if m.show.net %}<span>{{ t.dev_network }}　{{ t.dev_net_down }} {{ m.net_rx }}　{{ t.dev_net_up }} {{ m.net_tx }}</span>{% endif %}{% if m.show.disk_io %}<span>{{ t.dev_disk }}　{{ t.dev_disk_read }} {{ m.disk_r }}　{{ t.dev_disk_write }} {{ m.disk_w }}</span>{% endif %}</div>{% endif %}
+            {% if m.vols %}<div class="rule"></div><div class="slabel">{{ t.dev_storage }}</div>
+              {% for v in m.vols[:3] %}<div class="vol"><div class="clear"><span class="v tnum">{{ v.used }} / {{ v.total }} · {{ v.pct }}%</span><span class="k ell" style="display:block;overflow:hidden">{{ v.name }}</span></div><div class="bar thin" style="margin-top:3px"><i style="width:{{ v.pct }}%"></i></div></div>{% endfor %}
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="main"><div class="empty-box"><div class="big">{{ t.dev_title }}</div><div>{{ t.dev_empty }}</div></div></div>
+  {% endif %}
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%{% endif %}</span><span>{{ t.foot_updated }} {{ time_hm }}</span></div>
+</div>

@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* 音乐页 / blueprint:当前播放对象的工程图。封面=ARTWORK 图框,进度=量尺,模式=工程标注。
+   Kindle/static:只显歌曲与总时长;android:量尺自走当前时间。彩色仅封面。 */
+.m-l{width:282px;flex-shrink:0;}
+.m-cover{width:100%;aspect-ratio:1/1;border:1px solid var(--ink);overflow:hidden;background:#fff;position:relative;}
+.m-cover:before{content:"";position:absolute;left:5px;top:5px;width:9px;height:9px;border-left:1px solid var(--ink);border-top:1px solid var(--ink);}
+.m-cover:after{content:"";position:absolute;right:5px;bottom:5px;width:9px;height:9px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);}
+.m-cover img{display:block;width:100%;height:100%;object-fit:cover;}
+.static .m-cover img{filter:grayscale(1) contrast(1.1);}
+.android .m-cover img{filter:contrast(1.04) saturate(1.04);}
+.m-cover .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.m-cover .ph svg{opacity:.55;}
+.m-cstate{display:flex;align-items:center;gap:8px;margin-top:11px;}
+.m-cstate .ln{flex:1;height:1px;background:var(--ink);opacity:.5;}
+.m-song{font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-0.5px;margin-bottom:9px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.m-art{font-size:15px;font-weight:700;color:var(--ink2);letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.m-alb{font-size:12px;font-weight:400;color:var(--ink3);letter-spacing:0.5px;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.m-meas{margin-top:auto;}
+.m-elapsed .v small{font-size:10px;color:var(--ink3);font-weight:400;}
+.m-gauge > i{background-image:radial-gradient(#000 1px,transparent 1.2px);background-size:4px 4px;}
+.m-anno{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px;overflow:hidden;}
+.m-anno .at{border:1px solid var(--ink);padding:2px 9px;font-size:11px;font-weight:700;letter-spacing:0.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.m-anno .at .l{color:var(--ink3);font-weight:700;margin-right:4px;}
+.static .live-only{display:none;}
+.android .static-only{display:none;}
+/* 空状态:真实 ARTWORK 封面墙;缓存为空时回退工程状态标注 */
+.m-wall{flex:1;min-height:0;display:grid;gap:9px;overflow:hidden;position:relative;place-content:center;}
+.m-wall.wall-one{grid-template-columns:410px;}
+.m-wall.wall-two{grid-template-columns:repeat(2,290px);}
+.m-wall.wall-four{grid-template-columns:repeat(2,218px);}
+.m-wall.wall-nine{grid-template-columns:repeat(4,142px);grid-template-rows:repeat(3,142px);}
+.m-wall.wall-sixteen{grid-template-columns:repeat(4,103px);}
+.m-wall.wall-twenty{grid-template-columns:repeat(5,103px);}
+.m-wall.wall-nine .m-tile:first-child{grid-column:span 2;grid-row:span 2;}
+.m-tile{border:1px solid var(--ink4);background:#fff;aspect-ratio:1/1;overflow:hidden;position:relative;}
+.m-tile:before{content:"";position:absolute;left:4px;top:4px;width:8px;height:8px;border-left:1px solid var(--ink);border-top:1px solid var(--ink);z-index:1;}
+.m-tile:after{content:"";position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-right:1px solid var(--ink);border-bottom:1px solid var(--ink);z-index:1;}
+.m-tile img{display:block;width:100%;height:100%;object-fit:contain;background:#fff;filter:grayscale(1) contrast(1.1);}
+.android .m-tile img{filter:contrast(1.04) saturate(1.04);}
+.m-idlewrap{flex:1;min-height:0;position:relative;display:flex;}
+.m-idle{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;}
+.m-idle .x{display:inline-block;background:#fff;border:1px solid var(--ink);padding:6px 18px;font-size:13px;font-weight:700;letter-spacing:2px;}
+</style></head><body class="{% if target=='android' %}android{% else %}static{% endif %}">
+<div class="sheet"><div class="drawing">
+  <div class="mast"><div><div class="pj">KINDLE-DASH · MUSIC</div><div class="ti">{{ music.state_text if music.has_track and not music.idle_wall else t.music_now }}</div></div><div class="meta tnum">{{ now }}</div></div>
+  {% if music.has_track and not music.idle_wall %}
+  <div class="main">
+    <div class="col m-l">
+      <div class="fig"><span class="tag">FIG.1</span><span class="cap">{{ t.music_artwork }}</span><span class="ln"></span></div>
+      <div class="m-cover">
+        {% if music.artwork_url %}<img src="{{ music.artwork_url }}" alt="">
+        {% else %}<div class="ph"><svg width="86" height="86" viewBox="0 0 24 24" fill="none"
+          stroke="#666" stroke-width="1.3"><circle cx="7.5" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+          <path d="M10.5 18V5.5l10.5-2.2V14" stroke-linecap="round" stroke-linejoin="round"/></svg></div>{% endif %}
+      </div>
+      <div class="m-cstate"><span class="state">{{ music.state_text }}</span><span class="ln"></span></div>
+    </div>
+    <div class="vrule"></div>
+    <div class="col" style="flex:1;">
+      <div class="fig"><span class="tag">REF</span><span class="cap">{{ t.music_ref }}</span><span class="ln"></span></div>
+      <div class="m-song">{{ music.name }}</div>
+      {% if music.artist %}<div class="m-art">{{ music.artist }}</div>{% endif %}
+      <div class="m-alb">{% if music.album %}{{ music.album }}{% endif %}{% if music.album and music.year %} · {% endif %}{% if music.year %}{{ music.year }}{% endif %}</div>
+
+      <div class="m-meas">
+        <div class="fig"><span class="tag">DIM</span><span class="cap live-only">{{ t.music_progress }}</span><span class="cap static-only">{{ t.music_length }}</span><span class="ln"></span></div>
+        <div class="kv live-only m-elapsed"><span class="k">ELAPSED</span><span class="v tnum"><span data-music-position>{{ music.position_text }}</span> <small>/ {{ music.duration_text }}</small></span></div>
+        <div class="kv static-only"><span class="k">TOTAL</span><span class="v tnum">{{ music.duration_text }}</span></div>
+        <div class="gauge m-gauge live-only"><i data-music-bar style="width:{{ music.progress_pct }}%"></i></div>
+        <div class="m-anno">
+          <span class="at">{{ music.shuffle_text }}</span>
+          <span class="at">{{ music.repeat_text }}</span>
+          {% if music.genre %}<span class="at"><span class="l">GENRE</span>{{ music.genre }}</span>{% endif %}
+          {% if music.track_count %}<span class="at tnum"><span class="l">TRK</span>{{ music.track_number }}/{{ music.track_count }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="main"><div class="col m-idlewrap" style="flex:1;" aria-label="{{ t.music_idle_hint }}">
+    {% if music.artwork_wall %}
+    <div class="m-wall wall-{{ music.artwork_wall_mode }}" aria-hidden="true">
+      {% for art in music.artwork_wall %}<div class="m-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="m-idle"><span class="x">{{ t.music_idle }}</span></div>
+    {% endif %}
+  </div></div>
+  {% endif %}
+  <div class="titleblock">
+    <div class="cell grow"><div class="l">PROJECT</div><div class="v">KINDLE DASHBOARD</div></div>
+    <div class="cell"><div class="l">UPDATED</div><div class="v tnum">{{ music.updated_at or time_hm }}</div></div>
+    <div class="cell"><div class="l">{% if music.has_track and not music.idle_wall %}SOURCE{% else %}STATUS{% endif %}</div><div class="v">{% if music.has_track and not music.idle_wall %}Apple Music{% else %}{{ t.music_snapshot }}{% endif %}</div></div>
+    <div class="cell"><div class="l">SHEET</div><div class="v">{{ page_no }} / {{ page_total }}</div></div>
+  </div>
+</div></div>
+{% if target=='android' and music.has_track and not music.idle_wall %}
+<script>
+(function(){
+  var playing = {{ 'true' if music.state == 'playing' else 'false' }};
+  var duration = {{ music.duration or 0 }};
+  var position = {{ music.position or 0 }};
+  var sampledAt = {{ music.sampled_at or 0 }};
+  var initialDelta = sampledAt > 0 ? (Date.now() / 1000 - sampledAt) : 0;
+  if (!playing || Math.abs(initialDelta) > 300) initialDelta = 0;
+  var startedAt = Date.now() / 1000 - position - initialDelta;
+  var posEl = document.querySelector("[data-music-position]");
+  var barEl = document.querySelector("[data-music-bar]");
+  function two(n){ return n < 10 ? "0" + n : "" + n; }
+  function fmt(sec){
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    if (h) return h + ":" + two(m) + ":" + two(s);
+    return m + ":" + two(s);
+  }
+  function tick(){
+    var pos = playing ? Date.now() / 1000 - startedAt : position;
+    if (duration > 0) pos = Math.min(duration, pos);
+    var text = fmt(pos);
+    if (posEl) posEl.textContent = text;
+    if (barEl && duration > 0) barEl.style.width = Math.max(0, Math.min(100, pos / duration * 100)) + "%";
+  }
+  tick();
+  if (playing) setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+</body></html>

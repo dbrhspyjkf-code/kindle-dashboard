@@ -1,0 +1,107 @@
+{# legacy 智能家居(浅色 editorial,只读):图标瓷砖墙。
+   自适应:1 居中单卡;2=2×1;3=3×1;4=2×2;5/6=3×2;7-9=3×3;更多=4列。 #}
+{%- set S = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' -%}
+{%- set ICONS = {
+  'mdi:lightbulb': '<path d="M9.5 18.5h5M10.5 21h3M12 3a6 6 0 0 0-3.8 10.6c.6.5.9 1.1 1 1.9h5.6c.1-.8.4-1.4 1-1.9A6 6 0 0 0 12 3z"/>',
+  'mdi:power-socket': '<rect x="6" y="7" width="12" height="11" rx="2.5"/><path d="M10 7V4.5M14 7V4.5M10.5 12v2M13.5 12v2"/>',
+  'mdi:toggle-switch': '<rect x="3" y="8" width="18" height="8" rx="4"/><circle cx="16" cy="12" r="2.3" fill="currentColor"/>',
+  'mdi:fan': '<circle cx="12" cy="12" r="1.9" fill="currentColor"/><path d="M12 10.1c-.4-2.6.3-4.6-1.2-5.4s-3 .6-2.7 2.2 2.4 2.4 3.9 3.2zM13.9 12.4c2.4-1.2 4.5-1 5-2.6s-1.2-2.8-2.7-2.2-1.9 2.9-2.3 4.8zM10.6 13c-1.2 2.3-2.9 3.4-2.4 5s2.4 1.4 3.3.1.1-3.2-.9-5.1z"/>',
+  'mdi:robot': '<rect x="5" y="8.5" width="14" height="10.5" rx="2.5"/><path d="M12 8.5V5.5M12 4a1 1 0 1 0 .01 0M9.5 13h.01M14.5 13h.01M9.5 16h5"/>',
+  'mdi:lock': '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8.2a4 4 0 0 1 8 0V11"/><circle cx="12" cy="15.2" r="1.1" fill="currentColor"/>',
+  'mdi:window-shutter': '<rect x="4.5" y="4.5" width="15" height="15" rx="1.5"/><path d="M4.5 9.2h15M4.5 12.5h15M4.5 15.8h15"/>',
+  'mdi:garage': '<path d="M3.5 11l8.5-5.5 8.5 5.5v8.5H3.5z"/><path d="M6.5 19.5v-5.5h11v5.5M6.5 16.7h11"/>',
+  'mdi:door': '<path d="M6.5 20.5V4.5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M4.5 20.5h15M13.3 12h.01"/>',
+  'mdi:window-closed': '<rect x="4.5" y="4.5" width="15" height="15" rx="1.5"/><path d="M12 4.5v15M4.5 12h15"/>',
+  'mdi:motion-sensor': '<circle cx="12" cy="6.3" r="1.6" fill="currentColor"/><path d="M12 9v4l-2.5 5M12 13l2.8 5M8.5 11l3.5 1 3.5-1"/>',
+  'mdi:account': '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+  'mdi:thermometer': '<path d="M14 13.5V5.5a2 2 0 0 0-4 0v8a4 4 0 1 0 4 0z"/><path d="M12 9.5v5" stroke-width="1.4"/>',
+  'mdi:thermostat': '<circle cx="12" cy="12" r="8.2"/><path d="M12 7.5v4.5l3 2.2"/>',
+  'mdi:water-percent': '<path d="M12 3.5s5.6 6 5.6 10.4A5.6 5.6 0 0 1 6.4 13.9C6.4 9.5 12 3.5 12 3.5z"/><path d="M9.8 14.6l4.4-4.4M9.9 11.1h.01M14.1 14h.01" stroke-width="1.4"/>',
+  'mdi:gauge': '<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12.4 16.6 16 11"/><circle cx="12" cy="17" r="1.4" fill="currentColor"/>',
+  'mdi:flash': '<path d="M13.5 2.5 5 13.2h6.2L10 21.5l8.5-10.7h-6.2z" fill="currentColor" stroke="none"/>',
+  'mdi:lightning-bolt': '<path d="M13.5 2.5 5 13.2h6.2L10 21.5l8.5-10.7h-6.2z" fill="currentColor" stroke="none"/>',
+  'mdi:battery': '<rect x="4" y="8" width="15" height="9" rx="1.8"/><path d="M19 11h1.8a.8.8 0 0 1 .8.8v1.4a.8.8 0 0 1-.8.8H19"/><path d="M7 11v3" stroke-width="1.4"/>',
+  'mdi:brightness-5': '<circle cx="12" cy="12" r="3.8"/><path d="M12 3.2v2.2M12 18.6v2.2M3.2 12h2.2M18.6 12h2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6 16.8 7.2M7.2 16.8 5.6 18.4"/>',
+  'mdi:molecule-co2': '<circle cx="7" cy="12.5" r="2.8"/><circle cx="14.5" cy="9" r="2.4"/><circle cx="14.5" cy="16" r="2.4"/>',
+  'mdi:air-filter': '<rect x="4.5" y="4.5" width="15" height="15" rx="2.5"/><path d="M8 9h8M8 12h8M8 15h8" stroke-width="1.4"/>',
+  'mdi:air-humidifier': '<path d="M7.5 21h9a2.5 2.5 0 0 0 2.5-2.5V13H5v5.5A2.5 2.5 0 0 0 7.5 21z"/><path d="M9.5 9.5c-1-1 0-2.5 0-2.5M14.5 9.5c-1-1 0-2.5 0-2.5"/>',
+  'mdi:smoke-detector': '<circle cx="12" cy="12" r="8.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/>',
+  'mdi:gas-cylinder': '<rect x="8" y="6.5" width="8" height="14" rx="2.5"/><path d="M10 6.5V4.5h4v2"/>',
+  'mdi:bullhorn': '<path d="M4 10v4h2.5l8 4.5V5.5l-8 4.5H4z" fill="currentColor" stroke="none"/><path d="M17.5 9a4.5 4.5 0 0 1 0 6"/>',
+  'mdi:script-text': '<rect x="5.5" y="4" width="13" height="16" rx="2"/><path d="M8.5 8.5h7M8.5 12h7M8.5 15.5h4.5" stroke-width="1.4"/>',
+  'mdi:play-circle': '<circle cx="12" cy="12" r="8.5"/><path d="M10 8.5 16 12l-6 3.5z" fill="currentColor" stroke="none"/>',
+  'mdi:weather-partly-cloudy': '<circle cx="8.5" cy="8" r="3"/><path d="M8.5 1.8v1.4M2.3 8H3.7M14.7 8h1.4M4.3 3.8l1 1M12.7 3.8l-1 1"/><path d="M7.5 18.5h8a3.2 3.2 0 0 0 .3-6.4 4.6 4.6 0 0 0-8.8 1.1A2.8 2.8 0 0 0 7.5 18.5z"/>',
+  'mdi:alert': '<path d="M12 4 2.8 20h18.4z"/><path d="M12 10v4.5M12 17.3h.01"/>',
+  'mdi:circle': '<circle cx="12" cy="12" r="7"/>'
+} -%}
+{%- set KIND_ICONS = {
+  'toggle': '<circle cx="12" cy="13" r="6.5"/><path d="M12 4.5V11" stroke-width="2"/>',
+  'lock': '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8.2a4 4 0 0 1 8 0V11"/>',
+  'cover': '<rect x="4.5" y="4.5" width="15" height="15" rx="1.5"/><path d="M4.5 9.2h15M4.5 12.5h15M4.5 15.8h15"/>',
+  'binary': '<circle cx="12" cy="12" r="7"/>',
+  'sensor': '<path d="M4 17a8 8 0 0 1 16 0"/><path d="M12.4 16.6 16 11"/><circle cx="12" cy="17" r="1.4" fill="currentColor"/>',
+  'climate': '<circle cx="12" cy="12" r="8.2"/><path d="M12 7.5v4.5l3 2.2"/>',
+  'media': '<circle cx="12" cy="12" r="8.5"/><path d="M10 8.5 16 12l-6 3.5z" fill="currentColor" stroke="none"/>',
+  'presence': '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+  'text': '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/>'
+} -%}
+{%- set cards = ha.cards if ha else [] -%}
+{%- set on_n = cards|selectattr('on')|list|length -%}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ now }}{% if cards %}<br><span class="ink3">{{ on_n }} {{ t.ha_on }} · {{ cards|length }} {{ t.ha_entities }}</span>{% endif %}</div>
+    <div class="kicker">{{ t.ha_kicker }}</div>
+    <div class="title">{{ t.ha_title }}</div>
+  </div>
+  {% if cards %}
+  {%- set n = cards|length -%}
+  {%- if n == 1 -%}
+    {%- set cols = 1 -%}{%- set rows = 1 -%}{%- set cw = 420 -%}{%- set rh = 270 -%}
+  {%- elif n == 2 -%}
+    {%- set cols = 2 -%}{%- set rows = 1 -%}{%- set cw = 450 -%}{%- set rh = 270 -%}
+  {%- elif n == 3 -%}
+    {%- set cols = 3 -%}{%- set rows = 1 -%}{%- set cw = 306 -%}{%- set rh = 270 -%}
+  {%- elif n == 4 -%}
+    {%- set cols = 2 -%}{%- set rows = 2 -%}{%- set cw = 450 -%}{%- set rh = 230 -%}
+  {%- elif n <= 6 -%}
+    {%- set cols = 3 -%}{%- set rows = 2 -%}{%- set cw = 306 -%}{%- set rh = 230 -%}
+  {%- elif n <= 9 -%}
+    {%- set cols = 3 -%}{%- set rows = 3 -%}{%- set cw = 306 -%}{%- set rh = 156 -%}
+  {%- else -%}
+    {%- set cols = 4 -%}{%- set rows = ((n + cols - 1) // cols) -%}{%- set cw = 230 -%}{%- set rh = (470.0 / rows)|round(0)|int -%}
+  {%- endif -%}
+  {%- set gw = cols * cw -%}
+  {%- set gh = rows * rh -%}
+  {%- set ml = ((920 - gw) / 2.0)|round(0)|int -%}
+  {%- set mt = ((470 - gh) / 2.0)|round(0)|int -%}
+  <div class="main">
+    <div class="grid" style="width:{{ gw }}px;height:{{ gh }}px;margin-left:{{ ml }}px;margin-top:{{ mt }}px">
+      {% for grp in cards|batch(cols) %}
+      {%- set row_len = grp|length -%}
+      {%- set row_pad = ((cols - row_len) * cw / 2.0)|round(0)|int -%}
+      <div class="grow" style="height:{{ rh }}px{% if row_pad > 0 %};padding-left:{{ row_pad }}px{% endif %}">
+        {% for c in grp %}
+        <div class="gcell" style="width:{{ cw }}px;height:{{ rh }}px">
+          <div class="tile{% if c.on %} on{% endif %}">
+            <div class="thead clear">
+              {% set glyph = ICONS.get(c.icon) or KIND_ICONS.get(c.kind) or KIND_ICONS['text'] %}
+              <div class="disc"><span class="ic">{{ (S + glyph + '</svg>')|safe }}</span></div>
+              {% if c.on %}<span class="onmark">●</span>{% endif %}
+            </div>
+            <div class="tbody">
+              <div class="tnm">{{ c.name }}</div>
+              <div class="tval tnum">{% if c.value %}{{ c.value }}{% if c.unit %}<span class="u">{{ c.unit }}</span>{% endif %}{% else %}{{ c.state_text or '--' }}{% endif %}</div>
+              {% if c.sub %}<div class="tsub">{{ c.sub }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="main"><div class="empty-box"><div class="big">{{ t.ha_empty_big }}</div><div>{{ t.ha_empty_hint }}</div></div></div>
+  {% endif %}
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%{% endif %}</span><span>{{ t.foot_updated }} {{ time_hm }}</span></div>
+</div>

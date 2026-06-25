@@ -1,0 +1,154 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* 音乐页 / gauge:老式音响面板。封面=唱片套,进度=磁带计数器+横向走带槽,
+   随机/循环/曲目=设备铭牌。Kindle/static:只显总时长读数;android:计数器自走。彩色仅封面。 */
+.col-l{width:312px;flex-shrink:0;align-items:center;}
+.col-r{flex:1;min-width:0;}
+.m-covergroup{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;}
+.m-cover{width:100%;aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:var(--fill);flex-shrink:0;}
+.m-cover img{display:block;width:100%;height:100%;object-fit:cover;}
+.static .m-cover img{filter:grayscale(1) contrast(1.1);}
+.android .m-cover img{filter:contrast(1.04) saturate(1.05);}
+.m-cover .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.m-cover .ph svg{opacity:.55;}
+.m-song{font-size:19px;font-weight:800;text-align:center;line-height:1.22;letter-spacing:-0.5px;margin-top:13px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.m-art{font-size:13px;font-weight:700;color:var(--ink3);margin-top:6px;text-align:center;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.m-mode{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1.5px;background:var(--ink);color:#fff;
+  border-radius:14px;padding:3px 14px;margin-top:11px;flex-shrink:0;}
+.m-deck{width:100%;margin:16px 0;display:flex;flex:1;min-height:0;flex-direction:column;justify-content:center;gap:14px;}
+.m-counter{border:1.5px solid var(--ink);border-radius:7px;background:var(--paper);padding:13px 16px 12px;
+  display:flex;align-items:flex-end;justify-content:space-between;box-shadow:inset 0 0 0 3px var(--fill);}
+.m-counter .now{font-size:48px;font-weight:800;letter-spacing:-2px;line-height:.88;}
+.m-counter .total{font-size:14px;font-weight:800;color:var(--ink3);letter-spacing:.5px;padding-bottom:2px;}
+.m-counter .cap{font-size:9px;font-weight:800;color:var(--ink3);letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;}
+.m-tape{border:1.5px solid var(--line2);border-radius:8px;padding:16px 15px 13px;background:
+  repeating-linear-gradient(90deg,rgba(0,0,0,.05) 0,rgba(0,0,0,.05) 1px,transparent 1px,transparent 9px);}
+.m-spools{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px;}
+.m-spool{width:58px;height:58px;border:1.5px solid var(--ink);border-radius:50%;position:relative;background:var(--paper);}
+.m-spool:before{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border:1.5px solid var(--ink);border-radius:50%;}
+.m-spool:after{content:"";position:absolute;left:10px;right:10px;top:25px;border-top:1.5px solid var(--line2);}
+.m-window{flex:1;height:22px;margin:0 14px;border:1.5px solid var(--line2);background:var(--paper);position:relative;}
+.m-window:before{content:"";position:absolute;left:7px;right:7px;top:50%;border-top:1.5px dashed var(--ink3);}
+.m-rail{height:12px;border:1.5px solid var(--ink);background:var(--paper);overflow:hidden;}
+.m-rail i{display:block;height:100%;background:var(--ink);}
+.m-read{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:0;width:100%;
+  margin:16px 0;border:1.5px solid var(--ink);border-radius:8px;background:
+  repeating-linear-gradient(90deg,rgba(0,0,0,.04) 0,rgba(0,0,0,.04) 1px,transparent 1px,transparent 12px);}
+.m-read:before,.m-read:after{content:"";width:70%;border-top:1.5px solid var(--line2);}
+.m-read:before{margin-bottom:24px;}
+.m-read:after{margin-top:24px;}
+.m-read .v{font-size:62px;font-weight:800;letter-spacing:-3px;line-height:0.85;}
+.m-read .l{font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-top:8px;}
+.static .live-only{display:none;}
+.android .static-only{display:none;}
+.m-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;flex-shrink:0;}
+.m-cell{border:1.5px solid var(--line2);border-radius:7px;padding:8px 9px;min-width:0;background:var(--paper);}
+.m-cell .l{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:4px;}
+.m-cell .v{font-size:13px;font-weight:800;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* 空状态:圆角面板里的真实缓存封面墙 */
+.m-wall{flex:1;min-height:0;display:grid;gap:9px;overflow:hidden;position:relative;place-content:center;}
+.m-wall.wall-one{grid-template-columns:430px;}
+.m-wall.wall-two{grid-template-columns:repeat(2,305px);}
+.m-wall.wall-four{grid-template-columns:repeat(2,230px);}
+.m-wall.wall-nine{grid-template-columns:repeat(4,150px);grid-template-rows:repeat(3,150px);}
+.m-wall.wall-sixteen{grid-template-columns:repeat(4,112px);}
+.m-wall.wall-twenty{grid-template-columns:repeat(5,112px);}
+.m-wall.wall-nine .m-tile:first-child{grid-column:span 2;grid-row:span 2;}
+.m-tile{border-radius:7px;background:var(--fill);aspect-ratio:1/1;overflow:hidden;}
+.m-tile img{display:block;width:100%;height:100%;object-fit:contain;background:#fff;filter:grayscale(1) contrast(1.1);}
+.android .m-tile img{filter:contrast(1.04) saturate(1.05);}
+.m-idlewrap{flex:1;min-height:0;position:relative;display:flex;}
+.m-idle{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;}
+.m-idle .x{display:inline-block;background:var(--ink);color:#fff;border-radius:16px;padding:7px 20px;font-size:16px;font-weight:800;letter-spacing:1.5px;}
+</style></head><body class="{% if target=='android' %}android{% else %}static{% endif %}">
+<div class="cluster"><div class="ttl"><span class="chip">MUSIC</span>{{ music.state_text if music.has_track and not music.idle_wall else t.music_idle }}</div><div class="meta tnum">{% if music.has_track and not music.idle_wall and music.artist %}{{ music.artist }} · {% endif %}{{ now }}</div></div>
+{% if music.has_track and not music.idle_wall %}
+<div class="main">
+  <div class="panel col-l">
+    <div class="plate" style="align-self:flex-start;">{{ t.music_cover }}</div>
+    <div class="m-covergroup">
+      <div class="m-cover">
+        {% if music.artwork_url %}<img src="{{ music.artwork_url }}" alt="">
+        {% else %}<div class="ph"><svg width="90" height="90" viewBox="0 0 24 24" fill="none"
+          stroke="#6c6c6c" stroke-width="1.3"><circle cx="7.5" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+          <path d="M10.5 18V5.5l10.5-2.2V14" stroke-linecap="round" stroke-linejoin="round"/></svg></div>{% endif %}
+      </div>
+      <div class="m-song">{{ music.name }}</div>
+      {% if music.artist %}<div class="m-art">{{ music.artist }}{% if music.album %} — {{ music.album }}{% endif %}</div>{% endif %}
+      <span class="m-mode">{{ music.state_text }}</span>
+    </div>
+  </div>
+  <div class="panel soft col-r">
+    <div class="plate"><span class="live-only">{{ t.music_progress }}</span><span class="static-only">{{ t.music_length }}</span><span class="aux">{% if music.year %}{{ music.year }}{% endif %}</span></div>
+    <div class="m-deck live-only">
+      <div class="m-counter">
+        <div>
+          <div class="cap">{{ t.music_progress }}</div>
+          <div class="now tnum"><span data-music-position>{{ music.position_text }}</span></div>
+        </div>
+        <div class="total tnum">{{ music.duration_text }}</div>
+      </div>
+      <div class="m-tape">
+        <div class="m-spools"><span class="m-spool"></span><span class="m-window"></span><span class="m-spool"></span></div>
+        <div class="m-rail"><i data-music-bar style="width:{{ music.progress_pct }}%"></i></div>
+      </div>
+    </div>
+    <div class="m-read static-only">
+      <div class="v tnum">{{ music.duration_text }}</div>
+      <div class="l">{{ t.music_length }}</div>
+    </div>
+    <div class="m-grid">
+      <div class="m-cell"><div class="l">{{ t.music_shuffle }}</div><div class="v">{{ music.shuffle_text }}</div></div>
+      <div class="m-cell"><div class="l">{{ t.music_repeat }}</div><div class="v">{{ music.repeat_text }}</div></div>
+      <div class="m-cell"><div class="l">{{ t.music_genre }}</div><div class="v">{% if music.genre %}{{ music.genre }}{% else %}--{% endif %}</div></div>
+      <div class="m-cell"><div class="l">{{ t.music_track }}</div><div class="v tnum">{% if music.track_count %}{{ music.track_number }} / {{ music.track_count }}{% else %}--{% endif %}</div></div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="main"><div class="panel soft m-idlewrap" style="flex:1;" aria-label="{{ t.music_idle_hint }}">
+  {% if music.artwork_wall %}
+  <div class="m-wall wall-{{ music.artwork_wall_mode }}" aria-hidden="true">
+    {% for art in music.artwork_wall %}<div class="m-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+  </div>
+  {% else %}
+  <div class="m-idle"><span class="x">{{ t.music_idle }}</span></div>
+  {% endif %}
+</div></div>
+{% endif %}
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ music.updated_at or time_hm }}</b></span><span>{% if music.has_track and not music.idle_wall %}Apple Music{% else %}{{ t.music_snapshot }}{% endif %}</span><span>{{ t.music_page }} · {{ page_no }}/{{ page_total }}</span></div>
+{% if target=='android' and music.has_track and not music.idle_wall %}
+<script>
+(function(){
+  var playing = {{ 'true' if music.state == 'playing' else 'false' }};
+  var duration = {{ music.duration or 0 }};
+  var position = {{ music.position or 0 }};
+  var sampledAt = {{ music.sampled_at or 0 }};
+  var initialDelta = sampledAt > 0 ? (Date.now() / 1000 - sampledAt) : 0;
+  if (!playing || Math.abs(initialDelta) > 300) initialDelta = 0;
+  var startedAt = Date.now() / 1000 - position - initialDelta;
+  var posEl = document.querySelector("[data-music-position]");
+  var barEl = document.querySelector("[data-music-bar]");
+  function two(n){ return n < 10 ? "0" + n : "" + n; }
+  function fmt(sec){
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    if (h) return h + ":" + two(m) + ":" + two(s);
+    return m + ":" + two(s);
+  }
+  function tick(){
+    var pos = playing ? Date.now() / 1000 - startedAt : position;
+    if (duration > 0) pos = Math.min(duration, pos);
+    if (posEl) posEl.textContent = fmt(pos);
+    if (barEl && duration > 0) barEl.style.width = Math.max(0, Math.min(100, pos / duration * 100)) + "%";
+  }
+  tick();
+  if (playing) setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+</body></html>

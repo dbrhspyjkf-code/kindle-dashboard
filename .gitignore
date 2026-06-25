@@ -25,6 +25,8 @@ previews/
 !docs/**/*.png
 !styles/**/preview/*.png
 cache.json
+# 本地构建/自检产物(APK、离线渲染图、自检脚本输出);体积大、机器相关,不入库
+work/
 *.tmp
 
 # Python
@@ -48,6 +50,7 @@ Thumbs.db
 # 内部开发文档(含真实调试 IP / 内部决策 / 本地路径,不进公开仓库;本地保留供 AI 协作)
 CLAUDE_TASK_QUEUE.md
 CLAUDE.md
+AGENTS.md
 docs/migration-map.md
 docs/i18n-spec.md
 docs/nas-deploy-spec.md
@@ -55,6 +58,15 @@ docs/ha-page-spec.md
 docs/ha-page-styles-spec.md
 docs/mstodo-integration.md
 docs/multi-resolution-spec.md
+# 本轮 AI 协作的施工图/设计稿(同上,不公开;其中对用户/贡献者有用的内容已内联进公开文档)
+docs/mac-app-spec.md
+docs/android-legacy-support-spec.md
+docs/android-full-flavor-spec.md
+# v2 任务书:已实现、文件自标过时(as-built 以 docs/android-app.md 为准),收起免误导。注:docs/android-release.md 是有效的出包指南,保持公开不在此列
+docs/android-app-v2-spec.md
+docs/android-legacy-ui-redesign-research.md
+docs/apple-music-page-design-brief.md
+docs/apple-music-style-handoff.md
 
 # 测试日志(用户真机调试产物)
 Windows测试*.md

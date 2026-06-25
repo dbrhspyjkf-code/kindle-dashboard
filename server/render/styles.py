@@ -24,6 +24,58 @@ def styles_dir() -> str:
     return os.path.join(root, "styles")
 
 
+# 安卓 App 彩色主题:每套风格一个贴合其气质的强调色(墨水屏灰度版不变,仅 target=android 注入)。
+ANDROID_ACCENTS = {
+    "style_a":   "#b23a48",   # editorial 红
+    "terminal":  "#2ecc71",   # 绿屏荧光绿
+    "bento":     "#2f6fed",   # 便当蓝
+    "blueprint": "#2f6fed",   # 蓝图蓝
+    "minimal":   "#e8553d",   # 瑞士橙红
+    "newspaper": "#a8332e",   # 报头朱红
+    "gauge":     "#c0392b",   # 仪表红针
+}
+_DEFAULT_ACCENT = "#2f6fed"
+
+# 安卓控件文案(中央定义,按 lang 合并进模板变量 t,仅 target=android)。
+# 这样 7 套风格的 strings.json 一个不用动,i18n 仍走 t、英文缺回退中文。键名加 a_ 前缀避免撞现有文案。
+ANDROID_STRINGS = {
+    "zh": {"a_pause": "暂停", "a_resume": "恢复", "a_stop": "停止", "a_detail": "详情"},
+    "en": {"a_pause": "Pause", "a_resume": "Resume", "a_stop": "Stop", "a_detail": "Details"},
+}
+
+# 注入到 target=android 每页 <style> 末尾的共享主题:tap 反馈 + 控制按钮 + 语义色 helper。
+# 用 !important 让少量「可点感/语义色」压过各风格自有 CSS;版式不动,只上色 + 可交互。
+ANDROID_THEME = """
+/* ==== android 触控主题(仅活 HTML 注入;Kindle 灰度版永不含此段)==== */
+:root{ --a-accent:__ACCENT__; --a-ok:#1f9d55; --a-bad:#d64545; --a-warn:#d98b1f; }
+html,body{ -webkit-tap-highlight-color:rgba(0,0,0,.06); }
+[data-action],[data-detail]{ cursor:pointer; }
+[data-action]:active,[data-detail]:active{ filter:brightness(.93); }
+[data-action].acting{ animation:a-pulse .8s ease-in-out infinite; }
+@keyframes a-pulse{ 50%{ opacity:.5; } }
+.act{ display:inline-flex; align-items:center; justify-content:center; gap:4px; border:0;
+  border-radius:999px; padding:6px 14px; font-size:13px; font-weight:700; line-height:1;
+  background:var(--a-accent); color:#fff !important; cursor:pointer; }
+.act.ghost{ background:transparent; border:1.6px solid var(--a-accent); color:var(--a-accent) !important; }
+.act.danger{ background:var(--a-bad); }
+.act:active{ transform:scale(.94); }
+.a-ok{ color:var(--a-ok) !important; } .a-bad{ color:var(--a-bad) !important; }
+.a-warn{ color:var(--a-warn) !important; } .a-accent{ color:var(--a-accent) !important; }
+.a-fill{ background:var(--a-accent) !important; }
+.a-row{ display:flex; align-items:center; gap:8px; }
+/* B/C 类卡右上角 › 角标:提示「单击弹面板/详情」(A 类直发无角标)。纯 ::after,不入 HTML、不入 Kindle。 */
+[data-panel],[data-detail]{ position:relative; }
+[data-panel]::after,[data-detail]::after{ content:'›'; position:absolute; top:3px; right:7px;
+  font-size:15px; line-height:1; font-weight:800; color:var(--a-accent); opacity:.5; pointer-events:none; }
+"""
+
+
+# 内部模板集(不是可选的 Kindle 风格皮肤):不进风格选择器 / /api/styles / smoke 测试 / pick_style。
+# legacy = 安卓 4.x 古董 WebView 降级活页专用(float-CSS+ES5),只由 /app-legacy 经
+# render_page("legacy", ...) 与 has_page("legacy", ...) 直接按名调用,不走 list_styles。
+_INTERNAL_STYLES = {"legacy"}
+
+
 _envs: dict = {}
 
 
@@ -43,6 +95,8 @@ def list_styles(d: str = None) -> list:
         return []
     out = []
     for name in sorted(os.listdir(d)):
+        if name in _INTERNAL_STYLES:        # legacy 等内部模板集不算可选风格
+            continue
         sub = os.path.join(d, name)
         if not os.path.isdir(sub):
             continue
@@ -88,18 +142,30 @@ def read_strings(style: str, d: str = None) -> dict:
         return {}
 
 
-def render_page(style: str, page_key: str, ctx: dict, d: str = None) -> str:
+def render_page(style: str, page_key: str, ctx: dict, d: str = None,
+                target: str = "kindle") -> str:
     """渲染 styles/<style>/<page_key>.html。模板缺失抛 TemplateNotFound,由上层降级。
-    按 ctx['lang'] 注入该风格的文案表 t(英文缺条目回退中文)。"""
+    按 ctx['lang'] 注入该风格的文案表 t(英文缺条目回退中文)。
+
+    target:渲染出口。默认 'kindle'(现状,静态灰度截图);'android' 时模板用
+    `{% if target=='android' %}` 渲染可点控件 + 彩色覆盖(活 HTML)。
+    默认 kindle 保证 Kindle 出图链路与所有现有调用像素级零影响。"""
     d = d or styles_dir()
     tpl = _env(d).get_template(f"{style}/{page_key}.html")
     full = dict(ctx)
-    full["css"] = read_css(style, d)
+    css = read_css(style, d)
+    if target == "android":     # 灰度版不动;活 HTML 追加触控彩色主题(贴风格的强调色)
+        css += ANDROID_THEME.replace("__ACCENT__", ANDROID_ACCENTS.get(style, _DEFAULT_ACCENT))
+    full["css"] = css
     lang = (ctx.get("lang") or "zh")
     strings = read_strings(style, d)
     zh = strings.get("zh") or {}
     cur = strings.get(lang) or {}
     full["t"] = {**zh, **cur} if lang != "zh" else zh   # en 缺条目回退中文
+    if target == "android":   # 合并中央控件文案(a_pause/a_resume/...);灰度版 t 不含,零影响
+        astr = ANDROID_STRINGS.get(lang) or ANDROID_STRINGS["zh"]
+        full["t"] = {**ANDROID_STRINGS["zh"], **full["t"], **astr}
+    full["target"] = target
     return tpl.render(**full)
 
 

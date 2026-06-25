@@ -54,7 +54,8 @@
 </div>
 {% else %}
 <div class="main"><div class="idle-box"><div class="big">{{ printer.state_text if printer else t.printer_offline }}</div><div>{{ t.printer_no_task }}</div>
-{% if printer %}<div style="margin-top:20px;font-size:14px;">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}</div></div>
+{% if printer %}<div style="margin-top:20px;font-size:14px;">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}
+</div></div>
 {% endif %}
-<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span><span>5 / 5</span></div>
+<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span>{% endif %}<span>{{ page_no }} / {{ page_total }}</span></div>
 </body></html>

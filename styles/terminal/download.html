@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:transmission -l 风。顶部全局带(↓↑/RATIO/UL/ACT),种子用 ASCII 方块进度条
+   [####------] + 百分比 + 速度 + 名称 + 状态。纯灰度,等宽,层级靠粗细/方括号。 */
+.dl{flex:1;min-height:0;display:flex;flex-direction:column;padding:12px 14px;overflow:hidden;}
+.gl{flex-shrink:0;display:flex;gap:20px;flex-wrap:wrap;font-size:13px;color:var(--ink2);
+  margin-bottom:10px;border-bottom:1px dashed var(--ink3);padding-bottom:9px;}
+.gl .seg .lbl{color:var(--ink4);}
+.gl .seg b{color:var(--ink);font-weight:700;}
+.hdr{flex-shrink:0;font-size:11px;color:var(--ink4);padding-bottom:5px;margin-bottom:3px;display:flex;gap:9px;}
+.rows{flex:1;min-height:0;overflow:hidden;}
+.row{display:flex;align-items:baseline;gap:9px;font-size:13px;padding:4px 0;line-height:1.3;}
+.row .bar{color:var(--ink);letter-spacing:-1px;white-space:nowrap;flex-shrink:0;width:96px;}
+.row .pct{color:var(--ink2);font-weight:700;width:38px;flex-shrink:0;text-align:right;}
+.row .spd{color:var(--ink3);width:158px;flex-shrink:0;white-space:nowrap;overflow:hidden;}
+.row .spd b{color:var(--ink2);}
+.row .nm{color:var(--ink2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
+.row .stt{color:var(--ink3);flex-shrink:0;}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:15px;}
+</style></head><body>
+{%- set d = download -%}
+<div class="win">
+  <div class="titlebar"><span class="path"><span class="b">kindle://</span>transmission -l</span><span class="clk tnum">{{ now }}</span></div>
+  <div class="dl">
+    <div class="gl">
+      <span class="seg"><span class="lbl">DL</span> <b class="tnum">↓{{ d.dl_speed }}</b></span>
+      <span class="seg"><span class="lbl">UP</span> <b class="tnum">↑{{ d.up_speed }}</b></span>
+      <span class="seg"><span class="lbl">RATIO</span> <b class="tnum">{{ d.ratio }}</b></span>
+      <span class="seg"><span class="lbl">UL</span> <b class="tnum">{{ d.uploaded }}</b></span>
+      <span class="seg"><span class="lbl">ACT</span> <b class="tnum">{{ d.active }}/{{ d.total }}</b></span>
+    </div>
+    {% if d.torrents %}
+    <div class="hdr"><span style="width:96px">PROGRESS</span><span style="width:38px;text-align:right">%</span><span style="width:158px">DL / UP</span><span style="flex:1">NAME</span><span>STATE</span></div>
+    <div class="rows">
+      {% for tr in d.torrents %}
+      {%- set f = (tr.progress // 10) -%}
+      <div class="row">
+        <span class="bar tnum{% if target=='android' and tr.state == 'downloading' %} a-accent{% endif %}">[{{ '#' * f }}{{ '-' * (10 - f) }}]</span>
+        <span class="pct tnum">{{ tr.progress }}%</span>
+        <span class="spd tnum">↓<b>{{ tr.dl }}</b> ↑<b>{{ tr.up }}</b></span>
+        <span class="nm">{{ tr.name }}</span>
+        <span class="stt">{{ tr.state_text }}</span>
+        {% if target=='android' %}<button class="act ghost" style="flex-shrink:0;padding:2px 8px;font-size:11px;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty">{{ t.dl_empty }}</div>
+    {% endif %}
+  </div>
+  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg">{% if d.errors %}<span class="dim">OFFLINE</span> {{ d.errors|length }}{% else %}<span class="dim">UL</span> <span class="tnum">{{ d.uploaded }}</span>{% endif %}</span><span class="seg"><span class="dim">{% if battery.has %}{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span class="seg"><span class="dim">PAGE</span> {{ page_no }}/{{ page_total }}</span></div>
+</div>
+</body></html>

@@ -76,6 +76,10 @@
 } -%}
 {# 哪些 kind 在「开」时给右上角实心徽标(开关类设备);传感器/文本不给 #}
 {%- set TAG_KINDS = ['toggle','lock','cover','binary','climate','media','presence'] -%}
+{# 交互三档(仅 android 出口;spec docs/ha-page-interaction-spec.md §2):
+   DIRECT=单击直发动作、PANEL=单击弹底部控制面板、其余=单击弹只读详情。 #}
+{%- set DIRECT = ['toggle','lock','scene','button'] -%}
+{%- set PANEL = ['cover','climate','media','select','number','alarm'] -%}
 {%- set cards = ha.cards if ha else [] -%}
 {%- set on_n = cards|selectattr('on')|list|length -%}
 <div class="masthead">
@@ -88,11 +92,11 @@
 {%- if n > 12 -%}{%- set cols = 5 -%}{%- elif ce > 4 -%}{%- set cols = 4 -%}{%- elif ce < 1 -%}{%- set cols = 1 -%}{%- else -%}{%- set cols = ce -%}{%- endif -%}
 <div class="ha-grid" style="grid-template-columns:repeat({{ cols }}, 1fr);">
   {% for c in cards %}
-  <div class="tile {{ 'on' if c.on }}">
+  <div class="tile {{ 'on' if c.on }}"{% if target=='android' %}{% if c.kind in DIRECT %} data-action="ha" data-entity="{{ c.entity_id }}" data-cmd="{% if c.kind=='lock' %}{{ 'off' if c.on else 'on' }}{% elif c.kind=='scene' %}activate{% elif c.kind=='button' %}press{% else %}toggle{% endif %}"{% elif c.kind in PANEL %} data-panel="{{ c.kind }}" data-entity="{{ c.entity_id }}" data-name="{{ c.name }}" data-meta='{{ (c.meta or {})|tojson }}'{% else %} data-detail="{{ c.name }}" data-detail-title="{{ c.name }}" data-detail-rows="{{ t.ha_on if c.on else '' }}{% if c.value %}{{ c.value }}{{ c.unit }}{% else %}{{ c.state_text }}{% endif %}{% if c.sub %}|{{ c.sub }}{% endif %}"{% endif %}{% endif %}>
     <div class="head">
       {% set glyph = ICONS.get(c.icon) or KIND_ICONS.get(c.kind) or KIND_ICONS['text'] %}
-      <div class="disc"><span class="ic">{{ (S + glyph + '</svg>')|safe }}</span></div>
-      {% if c.on %}<span class="onmark">●</span>{% endif %}
+      <div class="disc{% if target=='android' and c.on %} a-fill{% endif %}"><span class="ic">{{ (S + glyph + '</svg>')|safe }}</span></div>
+      {% if c.on %}<span class="onmark{% if target=='android' %} a-accent{% endif %}">●</span>{% endif %}
     </div>
     <div class="body">
       <div class="nm">{{ c.name }}</div>
@@ -105,5 +109,5 @@
 {% else %}
 <div class="main"><div class="ha-empty"><div class="big">{{ t.ha_empty_big }}</div><div>{{ t.ha_empty_hint }}</div></div></div>
 {% endif %}
-<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if cards %}{{ on_n }} {{ t.ha_on }} · {{ cards|length }} {{ t.ha_entities }}{% endif %}</span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span></div>
+<div class="footer"><span>{{ t.foot_updated }} {{ time_hm }}</span><span>{% if cards %}{{ on_n }} {{ t.ha_on }} · {{ cards|length }} {{ t.ha_entities }}{% endif %}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span>{% endif %}<span>{{ page_no }} / {{ page_total }}</span></div>
 </body></html>

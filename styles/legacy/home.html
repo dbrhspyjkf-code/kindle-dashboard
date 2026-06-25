@@ -1,0 +1,42 @@
+{# legacy 首页(浅色 editorial):左=日历,右=天气 + 提醒。
+   4.2 真机对 float 百分比列/table height:100% 会收缩,所以用外壳固定坐标类。 #}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ home.weekday }}{% if lang == 'zh' %} · {{ t.home_lunar_label }}{{ home.lunar }} · {{ home.ganzhi }}{% endif %}{% if home.term %}<br><span class="ink3">{{ home.term }}</span>{% endif %}</div>
+    <div class="kicker">{{ t.home_kicker }}</div>
+    <div class="title tnum">{{ home.date_md.replace('/',' / ') }}</div>
+  </div>
+  <div class="main">
+    <div class="abscols">
+      <div class="acol home-l">
+        <div class="lcap home-month">{{ home.year }}{{ t.home_year_suffix }} {{ home.month }}{{ t.home_month_suffix }}</div>
+        <div class="home-calbox">
+          <table class="cal">
+            <tr><th>{{ t.wk_mon }}</th><th>{{ t.wk_tue }}</th><th>{{ t.wk_wed }}</th><th>{{ t.wk_thu }}</th><th>{{ t.wk_fri }}</th><th class="we">{{ t.wk_sat }}</th><th class="we">{{ t.wk_sun }}</th></tr>
+            {% for week in home.calendar %}<tr>{% for c in week %}{% if c %}<td class="{% if c.today %}today{% endif %} {% if c.weekend %}we{% endif %} {% if c.holiday %}hol{% endif %}"><div class="cd">{{ c.d }}</div><div class="cl">{{ c.l }}</div></td>{% else %}<td></td>{% endif %}{% endfor %}</tr>
+            {% endfor %}
+          </table>
+        </div>
+      </div>
+      <div class="acol home-r">
+        <div class="slabel">{{ t.home_weather }}{% if home.weather.city %} · {{ home.weather.city }}{% endif %}</div>
+        <div class="clear">
+          <div class="wx-right">{{ t.home_feels }} {{ home.weather.feels }}°<br>{{ t.home_humidity }} {{ home.weather.humidity }}%{% if home.weather.wind and home.weather.wind != '--' %}<br>{{ home.weather.wind }}{% endif %}</div>
+          <div class="wx-temp tnum">{{ home.weather.temp }}°</div>
+          <div class="wx-cond">{{ home.weather.cond }}</div>
+        </div>
+        <div class="wx-range tnum"><span>{{ t.home_today }} {{ home.weather.today_range }}</span>　　<span>{{ t.home_tomorrow }} {{ home.weather.tmr_range }} <span class="lo">{{ home.weather.tmr_cond }}</span></span></div>
+        <div class="rule"></div>
+        <div class="slabel">{{ t.home_reminders }} <span class="aux">{{ home.reminders.total }} {{ t.home_unit_items }}</span></div>
+        <div class="todo">
+          {% set rem = home.reminders %}
+          {% if rem.overdue %}<div class="grp accent">{{ t.home_grp_overdue }}</div>{% for r in rem.overdue[:3] %}<div class="lv"><span class="rt accent tnum">{{ r.dt }}</span><span class="lt"><span class="accent">●</span> {{ r.title }}</span></div>{% endfor %}{% endif %}
+          {% if rem.today %}<div class="grp">{{ t.home_grp_today }}</div>{% for r in rem.today[:3] %}<div class="lv"><span class="lt ink2">○ {{ r.title }}</span></div>{% endfor %}{% endif %}
+          {% if rem.upcoming %}<div class="grp">{{ t.home_grp_upcoming }}</div>{% for r in rem.upcoming[:5] %}<div class="lv"><span class="rt ink3 tnum">{{ r.dt }}</span><span class="lt ink2">○ {{ r.title }}</span></div>{% endfor %}{% endif %}
+          {% if not rem.overdue and not rem.today and not rem.upcoming %}<div class="lv"><span class="lt ink3">{{ t.home_no_reminders }}</span></div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%{% endif %}</span><span>{{ t.foot_updated }} {{ time_hm }}</span></div>
+</div>

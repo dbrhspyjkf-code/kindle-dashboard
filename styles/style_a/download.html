@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:顶部全局带(汇总全部种子)+ 活跃优先种子列表。墨水屏靠进度条填充/字重分主次,不靠颜色。 */
+.dl-band{flex-shrink:0;display:flex;gap:10px;margin-bottom:12px;}
+.dl-stat{flex:1;border:1px solid #c4c4c4;border-radius:5px;padding:8px 11px;display:flex;flex-direction:column;}
+.dl-stat .k{font-size:10px;font-weight:600;color:var(--ink3);letter-spacing:.3px;
+  text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dl-stat .v{font-size:21px;font-weight:800;letter-spacing:-.5px;line-height:1.1;color:var(--ink);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dl-stat .v .u{font-size:12px;font-weight:600;color:var(--ink3);margin-left:1px;}
+.dl-list{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+.tor{border-top:1px solid #e2e2e2;padding:8px 0 7px;display:flex;flex-direction:column;gap:5px;}
+.tor:first-child{border-top:none;}
+.tor .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.tor .nm{font-size:14px;font-weight:700;color:var(--ink);line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tor .st{font-size:11px;font-weight:700;color:var(--ink3);flex-shrink:0;letter-spacing:.3px;}
+.tor.dling .st{color:var(--ink);}
+.tor .pwrap{display:flex;align-items:center;gap:9px;}
+.pbar{flex:1;height:7px;background:#e6e6e6;border-radius:4px;overflow:hidden;}
+.pbar > i{display:block;height:100%;background:var(--ink2);}
+.tor.dling .pbar > i{background:var(--ink);}
+.tor .pct{font-size:11px;font-weight:700;color:var(--ink2);min-width:34px;text-align:right;}
+.tor .bot{display:flex;gap:14px;font-size:11px;color:var(--ink3);font-weight:600;}
+.tor .bot b{color:var(--ink2);font-weight:700;}
+.dl-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.dl-empty .big{font-size:30px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+.dl-off{font-size:10px;color:var(--ink2);font-weight:700;}
+</style></head><body>
+{%- set d = download -%}
+<div class="masthead">
+  <div><div class="kicker">{{ t.dl_kicker }}</div><div class="title">{{ t.dl_title }}</div></div>
+  <div class="meta">{{ now }}</div>
+</div>
+
+<div class="dl-band">
+  <div class="dl-stat"><div class="k">↓ {{ t.dl_speed_dl }}</div><div class="v tnum">{{ d.dl_speed }}</div></div>
+  <div class="dl-stat"><div class="k">↑ {{ t.dl_speed_up }}</div><div class="v tnum">{{ d.up_speed }}</div></div>
+  <div class="dl-stat"><div class="k">{{ t.dl_active }}</div><div class="v tnum">{{ d.active }}<span class="u"> / {{ d.total }}</span></div></div>
+  <div class="dl-stat"><div class="k">{{ t.dl_up_total }}</div><div class="v tnum">{{ d.uploaded }}</div></div>
+  <div class="dl-stat"><div class="k">{{ t.dl_ratio }}</div><div class="v tnum">{{ d.ratio }}</div></div>
+</div>
+
+{% if d.torrents %}
+<div class="dl-list">
+  {% for tr in d.torrents %}
+  <div class="tor {{ 'dling' if tr.state == 'downloading' }}">
+    <div class="top"><div class="nm">{{ tr.name }}</div><div class="st">{{ tr.state_text }}</div>
+      {% if target=='android' %}<button class="act ghost" style="margin-left:auto;flex-shrink:0;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}</div>
+    <div class="pwrap">
+      <div class="pbar"><i class="{% if target=='android' and tr.state == 'downloading' %}a-fill{% endif %}" style="width:{{ tr.progress }}%;"></i></div>
+      <div class="pct tnum">{{ tr.progress }}%</div>
+    </div>
+    <div class="bot tnum">
+      <span>↓ <b>{{ tr.dl }}</b></span>
+      <span>↑ <b>{{ tr.up }}</b></span>
+      <span>{{ t.dl_ratio }} <b>{{ tr.ratio }}</b></span>
+      <span>{{ tr.size }}</span>
+      {% if tr.state == 'downloading' and tr.eta != '—' %}<span>{{ t.dl_eta }} <b>{{ tr.eta }}</b></span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="dl-empty"><div class="big">{{ t.dl_empty }}</div></div>
+{% endif %}
+
+<div class="footer">
+  <span>{{ t.foot_updated }} {{ time_hm }}</span>
+  <span>{% if d.errors %}<span class="dl-off">{{ d.errors|length }} {{ t.dl_offline }}</span>{% else %}{{ t.dl_active }} {{ d.active }} / {{ d.total }}{% endif %}</span>
+  <span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span>{% endif %}
+  <span>{{ page_no }} / {{ page_total }}</span>
+</div>
+</body></html>

@@ -23,6 +23,9 @@ PAGES = {
     "device":  {"title": "设备",   "section": "device",  "needs": ["devices"]},
     "ha":      {"title": "智能家居", "section": "ha",      "needs": ["ha_page"]},
     "printer": {"title": "打印机", "section": "printer", "needs": ["printer"]},
+    "news":    {"title": "资讯",   "section": "news",    "needs": ["news"]},
+    "download":{"title": "下载",   "section": "download","needs": ["downloaders"]},
+    "music":   {"title": "音乐",   "section": "music",   "needs": ["music"]},
 }
 
 # 降级占位符:数字类用 0,文本类用 "--",列表类用 []。
@@ -41,6 +44,10 @@ def empty_top():
             "charging": False,  # bool
             "has": False,       # bool,有无电池数据(无则模板不渲染电池块)
         },
+        # 页脚动态页码:由渲染入口按「实际启用页顺序」(active_pages)注入,反映用户手动排序。
+        # 默认 1/1(空上下文/测试),真实渲染时被覆盖。模板用 {{ page_no }} / {{ page_total }}。
+        "page_no": 1,
+        "page_total": 1,
     }
 
 
@@ -116,13 +123,26 @@ def empty_ha():
     单张卡片对象(契约,冻结字段名):
         name        str   显示名(用户覆盖 or HA 友好名)
         kind        str   toggle/lock/cover/binary/sensor/climate/media/presence/text
+                          /select/number/button/scene/alarm
         icon        str   MDI 图标名(mdi:xxx);空串=不显图标
-        on          bool  激活态强调(开/有人/已锁/播放中…);sensor 恒 false
-        state_text  str   主显文本(toggle/lock/cover/binary/climate/media/presence/text)
+        on          bool  激活态强调(开/有人/已锁/播放中…);sensor/select/number/
+                          button/scene/alarm 恒 false(不改 Kindle 主次)
+        state_text  str   主显文本(toggle/lock/cover/binary/climate/media/presence/text
+                          /select/number/button/scene/alarm)
         value       str   主显数值(sensor;非 sensor 为空)
         unit        str   数值单位(sensor;如 °C / % / W)
         sub         str   次要行(climate 目标温度、media 标题…),可空
+        entity_id   str   HA 实体 id(**仅 App 交互用**:点卡→/api/action/ha;Kindle 模板无视)
+        meta        dict  **仅 App 控制面板用**(B 类可控卡才有;Kindle 模板无视,不影响出图):
+                          cover  {on, position}
+                          climate{on, mode, modes[], current, target}
+                          media  {on, title}
+                          select {options[], current}
+                          number {min, max, step, unit, value}
+                          alarm  {state}
+                          (toggle/lock/scene/button=A 类单击直发,sensor 等=只读详情,均无 meta)
     模板主显:value 非空 → value 大字 + unit 小字;否则 state_text 大字。sub 非空加一行。
+    交互模型见 docs/ha-page-interaction-spec.md。**meta 是 App 出口追加的字段名**(非 dict 方法名,安全)。
     """
     return {"cards": []}
 
@@ -132,6 +152,7 @@ def empty_printer():
     return {
         "online": False,
         "printing": False,
+        "paused": False,         # 仅 App 控制用(暂停态→显示「恢复」按钮);Kindle 模板无视
         "state_text": DASH,      # "打印中"/"空闲"/"离线"...
         "progress": 0,           # 0-100
         "task": DASH,            # 文件名
@@ -148,6 +169,98 @@ def empty_printer():
     }
 
 
+def empty_news():
+    """RSS 资讯页:轮播选中的 1 条(或多条)。未配 feed/拉不到 → items 空,该页隐藏。
+    单条对象(契约,冻结字段名):
+        title    str  标题
+        summary  str  正文整段(feed 的 description,已去 HTML)
+        source   str  来源名(author 括号内 / feed 名)
+        category str  话题(feed 带 <category> 才有,AIHOT 无 → 空串,模板有则显示)
+        when     str  相对时间,如 "2小时前" / "2h ago" / 日期(已按 lang 本地化)
+        link     str  原文链接(墨水屏不可点,默认不显示)
+    """
+    return {
+        # 字段名用 entries 不用 items:Jinja `news.items` 会撞 dict.items() 方法(坑),entries 不撞。
+        "entries": [],   # [单条, ...] 轮播选中的条目(默认 1 条)
+        "index": 0,      # 当前在全部条目中的序号(从 1 起,给模板显示"第 x 条")
+        "total": 0,      # 全部条目数(显示"/N")
+        "title": DASH,   # 页面主标题(通常来自 strings.json 的 t,channel 标题兜底)
+    }
+
+
+def empty_download():
+    """下载看板页(qBittorrent + Transmission 合并)。未配/全连不上 → torrents 空,该页隐藏。
+    顶层全局字段已格式化;单条种子(torrents[*],冻结字段名):
+        name        str   种子名
+        progress    int   0~100
+        dl / up     str   速度,已格式化 "29 MB/s" / "0"
+        ratio       str   分享率 "0.43"
+        size        str   "12.3G"
+        eta         str   "12分" / "1时5分" / "—"(已本地化)
+        state       str   统一枚举 downloading/seeding/paused/checking/queued/stalled/error/other(模板选图标)
+        state_text  str   已本地化状态文字(下载中/做种/暂停…)(模板显示)
+        id          str   种子 id(**仅 App 控制用**:qB=hash / Transmission=数字 id;Kindle 模板无视)
+        client      str   所属下载器名(**仅 App 控制用**:按它路由到对应 adapter;Kindle 模板无视)
+    """
+    return {
+        "ok": False,
+        "dl_speed": "0", "up_speed": "0",   # 已格式化总速度
+        "active": 0, "total": 0,
+        "ratio": "0.00",                    # 聚合全局分享率
+        "uploaded": DASH, "downloaded": DASH,  # 累计(已格式化)
+        "free": "",                         # 剩余空间;未知=空串(模板不显)
+        "torrents": [],                     # 已排序+截断;字段见上
+        "errors": [],                       # 连不上的下载器名(部分离线提示)
+    }
+
+
+def empty_music():
+    """音乐播放页(Apple Music / Music.app,由 Mac 上的 Music agent 推送)。
+    has_track=False → 空状态「当前无播放」:模板显占位框、**不显假进度条**(对标打印机页「无任务」)。
+
+    渲染目标分层(模板用 target 区分):
+      静态目标(target=kindle/legacy、/web-simple):**不显** progress/position/递增时间,只显「当前是哪首歌」。
+      动态目标(target=android):前端据 position+duration+sampled_at 自走进度条与递增时间。
+    *_text 字段一律由 build_context 按 lang 产出(state_text/shuffle_text/repeat_text/位置时长),
+    **别在模板里写死中文**(i18n 红线)。字段名不用 dict 方法名(items/keys/get)。
+    """
+    return {
+        "available": False,    # 模块已启用且 agent 有效(长期不可用可考虑撤页;空状态仍 True)
+        "has_track": False,    # 有无当前曲目;False=空状态
+        "state": "stopped",    # playing / paused / stopped
+        "state_text": DASH,    # 已本地化:播放中 / 已暂停 / 已停止
+        "name": DASH,          # 歌名
+        "artist": "",          # 艺人(可空)
+        "album": "",           # 专辑(可空)
+        "album_artist": "",    # 专辑艺人(可选)
+        "composer": "",        # 作曲(可选)
+        "genre": "",           # 流派(可选)
+        "year": "",            # 年份(可空,字符串)
+        "duration": 0,         # 总时长(秒,动态目标用)
+        "duration_text": DASH, # "5:14"
+        "position": 0,         # 当前进度(秒,动态目标用)
+        "position_text": DASH, # "1:43"
+        "progress_pct": 0,     # 0-100(动态目标用)
+        "sampled_at": 0,       # 采集时刻 epoch 秒(动态目标:前端据此推算实时进度)
+        "state_since": 0,      # 当前播放状态从何时开始(epoch 秒);暂停超时屏保用
+        "paused_for": 0,       # 已暂停秒数(非 paused 为 0)
+        "idle_wall": False,    # True=显示封面墙/屏保主体(无播放或暂停超时)
+        "shuffle": False,      # 随机播放
+        "shuffle_text": DASH,  # 已本地化:随机开 / 随机关
+        "repeat": "off",       # off / all / one
+        "repeat_text": DASH,   # 已本地化:循环关 / 列表循环 / 单曲循环
+        "track_number": 0, "track_count": 0,   # 曲目序号 / 总数(可选)
+        "loved": False,        # 是否喜欢(可选)
+        "play_count": 0,       # 播放次数(可选)
+        "artwork_url": "",     # 封面 URL;空=无封面,模板显占位框
+        "artwork_wall": [],    # [{url, album, artist, hash}] 无播放/暂停超时封面墙
+        "artwork_wall_cols": 0, # 封面墙建议列数:0=无缓存,1/2/3/4/5 自适应
+        "artwork_wall_rows": 0, # 封面墙建议行数:0=无缓存,1/2/3/4 自适应
+        "artwork_wall_mode": "empty", # empty/one/two/four/nine/sixteen/twenty
+        "updated_at": "",      # 更新时间 "17:22"(可选)
+    }
+
+
 def empty_context():
     """完整的降级上下文:所有页字段齐备、全为占位值。
     预览无数据、数据源未配置、采集失败时用它兜底,保证渲染出图不报错。"""
@@ -157,4 +270,7 @@ def empty_context():
     ctx["device"] = empty_device()
     ctx["ha"] = empty_ha()
     ctx["printer"] = None   # 默认无打印机
+    ctx["news"] = empty_news()
+    ctx["download"] = empty_download()
+    ctx["music"] = empty_music()
     return ctx

@@ -6,7 +6,7 @@
 # 时区从 KINDLE_TZ 读,默认 Asia/Shanghai(ccusage 必带 --timezone,否则按本机时区切天)。
 #
 # 手动测试:
-#   KINDLE_DASH_URL=http://192.168.5.53:8585 bash installers/macos/push_ccusage.sh
+#   KINDLE_DASH_URL=http://192.168.1.100:8585 bash installers/macos/push_ccusage.sh
 
 URL="${KINDLE_DASH_URL:-http://127.0.0.1:8585}"
 TZ_NAME="${KINDLE_TZ:-Asia/Shanghai}"

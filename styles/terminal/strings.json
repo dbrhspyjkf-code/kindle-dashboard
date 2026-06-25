@@ -27,6 +27,8 @@
     "recent_7d": "近 7 天",
     "no_devices": "~ 暂无设备数据",
     "no_entities": "~ 暂无实体,去设置页添加 HA",
+    "news_empty": "~ 暂无资讯,联网后自动加载",
+    "dl_empty": "~ 暂无下载任务",
     "remaining": "剩余",
     "done": "完成",
     "temperature": "温度",
@@ -38,7 +40,14 @@
     "cooling_fan": "冷却风扇",
     "idle_no_task": "打印机当前无任务",
     "nozzle_label": "喷头",
-    "bed_label": "热床"
+    "bed_label": "热床",
+    "music_art": "封面",
+    "music_now": "正在播放",
+    "music_progress": "进度",
+    "music_length": "时长",
+    "music_idle": "未在播放",
+    "music_idle_hint": "当前没有正在播放的音乐",
+    "music_snapshot": "快照"
   },
   "en": {
     "weather": "WEATHER",
@@ -68,6 +77,8 @@
     "recent_7d": "LAST 7 DAYS",
     "no_devices": "~ No device data",
     "no_entities": "~ No entities, add HA in setup",
+    "news_empty": "~ No news yet, loads once online",
+    "dl_empty": "~ No active tasks",
     "remaining": "ETA",
     "done": "Done",
     "temperature": "TEMPERATURE",
@@ -79,6 +90,13 @@
     "cooling_fan": "Cooling fan",
     "idle_no_task": "Printer idle, no task",
     "nozzle_label": "Nozzle",
-    "bed_label": "Bed"
+    "bed_label": "Bed",
+    "music_art": "ALBUM ART",
+    "music_now": "NOW PLAYING",
+    "music_progress": "PROGRESS",
+    "music_length": "LENGTH",
+    "music_idle": "NO TRACK",
+    "music_idle_hint": "Nothing is playing right now",
+    "music_snapshot": "SNAPSHOT"
   }
 }

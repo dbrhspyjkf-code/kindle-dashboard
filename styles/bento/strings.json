@@ -47,6 +47,21 @@
     "ha_on_suffix": "开启",
     "ha_entities_suffix": "实体",
 
+    "news_label": "资讯",
+    "news_unit": "条",
+    "news_empty_title": "暂无资讯",
+    "news_empty_hint": "已预置 AIHOT,联网后自动加载",
+
+    "dl_title": "下载",
+    "dl_dl": "下载",
+    "dl_up": "上传",
+    "dl_active": "活动",
+    "dl_uploaded": "累计上传",
+    "dl_ratio": "分享率",
+    "dl_eta": "剩",
+    "dl_offline": "个下载器离线",
+    "dl_empty": "暂无下载任务",
+
     "printer_title": "3D 打印",
     "printer_done": "已完成",
     "printer_remaining": "剩余",
@@ -64,13 +79,29 @@
     "printer_nozzle": "喷头",
     "printer_bed": "热床",
 
+    "music_title": "未在播放",
+    "music_now_spinning": "当前曲目",
+    "music_playback": "播放状态",
+    "music_snapshot": "Apple Music",
+    "music_progress": "播放进度",
+    "music_now": "当前时间",
+    "music_length": "时长",
+    "music_lbl_album": "专辑",
+    "music_lbl_genre": "流派",
+    "music_shuffle": "随机",
+    "music_repeat": "循环",
+    "music_year": "年份",
+    "music_track": "曲目",
+    "music_empty_hint": "未在播放",
+
     "foot_updated": "更新于",
     "foot_charging": "充电",
     "foot_battery": "电量",
     "page_home": "首页",
     "page_ai": "AI 用量",
     "page_device": "设备",
-    "page_printer": "打印机"
+    "page_printer": "打印机",
+    "page_music": "音乐"
   },
   "en": {
     "home_title": "Home",
@@ -119,6 +150,21 @@
     "ha_on_suffix": "on",
     "ha_entities_suffix": "entities",
 
+    "news_label": "News",
+    "news_unit": "",
+    "news_empty_title": "No News",
+    "news_empty_hint": "AIHOT preloaded; loads once online",
+
+    "dl_title": "Downloads",
+    "dl_dl": "Down",
+    "dl_up": "Up",
+    "dl_active": "Active",
+    "dl_uploaded": "Uploaded",
+    "dl_ratio": "Ratio",
+    "dl_eta": "ETA",
+    "dl_offline": "offline",
+    "dl_empty": "No active tasks",
+
     "printer_title": "3D Print",
     "printer_done": "Done",
     "printer_remaining": "Left",
@@ -136,12 +182,28 @@
     "printer_nozzle": "Nozzle",
     "printer_bed": "Bed",
 
+    "music_title": "Not Playing",
+    "music_now_spinning": "Current Track",
+    "music_playback": "Playback",
+    "music_snapshot": "Apple Music",
+    "music_progress": "Progress",
+    "music_now": "Now",
+    "music_length": "Length",
+    "music_lbl_album": "Album",
+    "music_lbl_genre": "Genre",
+    "music_shuffle": "Shuffle",
+    "music_repeat": "Repeat",
+    "music_year": "Year",
+    "music_track": "Track",
+    "music_empty_hint": "Not Playing",
+
     "foot_updated": "Updated",
     "foot_charging": "Charging",
     "foot_battery": "Battery",
     "page_home": "Home",
     "page_ai": "AI Usage",
     "page_device": "Devices",
-    "page_printer": "Printer"
+    "page_printer": "Printer",
+    "page_music": "Music"
   }
 }

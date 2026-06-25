@@ -29,7 +29,40 @@ def test_enable_when_drives_pages():
     assert "home" not in schema.active_pages(cfg)
     cfg["weather"]["key"] = "x"
     cfg["weather"]["location"] = "101010100"
-    assert schema.active_pages(cfg) == ["home"]
+    assert "home" in schema.active_pages(cfg)
+
+
+def test_news_default_on_with_aihot():
+    """资讯页默认就预置 AIHOT 订阅源 → 全新配置即默认开 news(无需凭据,无需手配)。
+    回归:曾因 default_config() 把 module_list 一律置空、忽略 Field 的 default,
+    导致 AIHOT 默认源丢失、news 页默认不出现。"""
+    cfg = schema.default_config()
+    feeds = cfg["news"]["feeds"]
+    assert feeds and any("aihot" in (f.get("url") or "").lower() for f in feeds), \
+        f"news.feeds 默认应预置 AIHOT: {feeds}"
+    assert schema.enabled_modules(cfg).get("news") is True
+    assert "news" in schema.active_pages(cfg)
+
+
+def test_other_module_lists_default_empty():
+    """除 news 外的 module_list(设备/下载器/HA 实体)默认仍为空,不凭空启用。"""
+    cfg = schema.default_config()
+    assert cfg["devices"]["machines"] == []
+    assert cfg["downloaders"]["clients"] == []
+    assert cfg["ha_page"]["entities"] == []
+
+
+def test_pages_custom_order_and_appends_unlisted():
+    """display.pages 自定义顺序生效;且没列进顺序但已配的页自动补末尾(不凭空消失)。"""
+    cfg = schema.default_config()
+    cfg["weather"]["key"] = "x"; cfg["weather"]["location"] = "101010100"   # home 就绪
+    cfg["ai_usage"]["enabled"] = True                                       # ai 就绪
+    cfg["news"]["feeds"] = [{"url": "http://x/feed.xml", "name": "X"}]       # news 就绪
+    # 用户只把 ai 拖到第一,没列 home/news
+    cfg["display"]["pages"] = ["ai"]
+    pages = schema.active_pages(cfg)
+    assert pages[0] == "ai"                          # 自定义顺序:ai 在最前
+    assert "home" in pages and "news" in pages       # 没列进去但已配 → 仍出现(补在后面)
 
 
 def test_required_only_checked_when_enabled():

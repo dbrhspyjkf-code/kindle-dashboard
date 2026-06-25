@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* 音乐页 / minimal:大封面 + 大歌名 + 一条极细进度线 + 大留白。
+   Kindle/static:只显时长,不做假进度;android:极细线自走当前时间。彩色仅封面。 */
+.m-main{flex:1;min-height:0;display:flex;gap:48px;align-items:center;overflow:hidden;}
+.m-cover{width:362px;height:362px;flex-shrink:0;border:1px solid var(--line2);overflow:hidden;background:#fff;}
+.m-cover img{display:block;width:100%;height:100%;object-fit:cover;}
+.static .m-cover img{filter:grayscale(1) contrast(1.08);}
+.android .m-cover img{filter:contrast(1.03) saturate(1.04);}
+.m-cover .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.m-cover .ph svg{opacity:.5;}
+.m-r{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;}
+.m-song{font-size:48px;font-weight:600;line-height:1.04;letter-spacing:-2px;margin-bottom:18px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.m-art{font-size:22px;font-weight:600;letter-spacing:-0.5px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.m-alb{font-size:13px;font-weight:500;color:var(--ink3);margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.m-prog{margin-top:38px;}
+.m-prog .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;}
+.m-prog .pos{font-size:22px;font-weight:600;letter-spacing:-0.5px;}
+.m-prog .dur{font-size:13px;font-weight:500;color:var(--ink3);}
+.m-line{height:3px;background:var(--track);overflow:hidden;}
+.m-line > i{display:block;height:100%;background:var(--ink);}
+.m-aux{font-size:12px;font-weight:500;letter-spacing:1px;color:var(--ink3);margin-top:18px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.static .live-only{display:none;}
+.android .static-only{display:none;}
+/* 空状态:极简联系表式空封面墙(仅发丝描边,无填充) */
+.m-wall{flex:1;min-height:0;display:grid;gap:18px;overflow:hidden;position:relative;place-content:center;}
+.m-wall.wall-one{grid-template-columns:400px;}
+.m-wall.wall-two{grid-template-columns:repeat(2,280px);}
+.m-wall.wall-four{grid-template-columns:repeat(2,205px);}
+.m-wall.wall-nine{grid-template-columns:repeat(4,128px);grid-template-rows:repeat(3,128px);}
+.m-wall.wall-sixteen{grid-template-columns:repeat(4,96px);}
+.m-wall.wall-twenty{grid-template-columns:repeat(5,92px);}
+.m-wall.wall-nine .m-tile:first-child{grid-column:span 2;grid-row:span 2;}
+.m-wall.wall-sixteen .m-tile{width:96px;}
+.m-wall.wall-twenty .m-tile{width:92px;}
+.m-tile{border:1px solid var(--line2);overflow:hidden;}
+.m-tile{aspect-ratio:1 / 1;}
+.m-tile img{display:block;width:100%;height:100%;object-fit:contain;background:#fff;filter:grayscale(1) contrast(1.08);}
+.android .m-tile img{filter:contrast(1.03) saturate(1.04);}
+.m-idlewrap{flex:1;min-height:0;position:relative;display:flex;align-items:center;}
+.m-idle{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;}
+.m-idle .x{display:inline-block;background:#fff;padding:10px 22px;font-size:34px;font-weight:600;letter-spacing:-1px;color:var(--ink);}
+</style></head><body class="{% if target=='android' %}android{% else %}static{% endif %}">
+<div class="head">
+  <div class="ttl">{{ t.music_idle if music.idle_wall or not music.has_track else music.state_text }}</div>
+  <div class="meta tnum">{% if music.has_track and not music.idle_wall and music.artist %}{{ music.artist }} · {% endif %}{{ now }}</div>
+</div>
+{% if music.has_track and not music.idle_wall %}
+<div class="m-main">
+  <div class="m-cover">
+    {% if music.artwork_url %}<img src="{{ music.artwork_url }}" alt="">
+    {% else %}<div class="ph"><svg width="96" height="96" viewBox="0 0 24 24" fill="none"
+      stroke="#b4b4b4" stroke-width="1.2"><circle cx="7.5" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+      <path d="M10.5 18V5.5l10.5-2.2V14" stroke-linecap="round" stroke-linejoin="round"/></svg></div>{% endif %}
+  </div>
+  <div class="m-r">
+    <div class="lab">{{ t.music_now }}</div>
+    <div class="m-song">{{ music.name }}</div>
+    {% if music.artist %}<div class="m-art">{{ music.artist }}</div>{% endif %}
+    <div class="m-alb">{% if music.album %}{{ music.album }}{% endif %}{% if music.album and music.year %} · {% endif %}{% if music.year %}{{ music.year }}{% endif %}</div>
+    <div class="m-prog">
+      <div class="top live-only"><span class="pos tnum" data-music-position>{{ music.position_text }}</span><span class="dur tnum">{{ music.duration_text }}</span></div>
+      <div class="top static-only"><span class="pos tnum">{{ music.duration_text }}</span><span class="dur">{{ t.music_length }}</span></div>
+      <div class="m-line live-only"><i data-music-bar style="width:{{ music.progress_pct }}%"></i></div>
+    </div>
+    <div class="m-aux">{{ music.shuffle_text }} · {{ music.repeat_text }}{% if music.genre %} · {{ music.genre }}{% endif %}</div>
+  </div>
+</div>
+{% else %}
+<div class="m-main m-idlewrap" aria-label="{{ t.music_idle_hint }}">
+  {% if music.artwork_wall %}
+  <div class="m-wall wall-{{ music.artwork_wall_mode }}" aria-hidden="true">
+    {% for art in music.artwork_wall %}<div class="m-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+  </div>
+  {% else %}
+  <div class="m-idle"><span class="x">{{ t.music_idle }}</span></div>
+  {% endif %}
+</div>
+{% endif %}
+<div class="foot">
+  <span>{{ t.foot_updated }} <span class="tnum">{{ music.updated_at or time_hm }}</span></span>
+  <span>{% if music.has_track and not music.idle_wall %}{{ t.music_snapshot }}{% else %}{{ t.music_idle_hint }}{% endif %}</span>
+  <span>{{ t.music_page }} · {{ "%02d"|format(page_no) }} / {{ "%02d"|format(page_total) }}</span>
+</div>
+{% if target=='android' and music.has_track and not music.idle_wall %}
+<script>
+(function(){
+  var playing = {{ 'true' if music.state == 'playing' else 'false' }};
+  var duration = {{ music.duration or 0 }};
+  var position = {{ music.position or 0 }};
+  var sampledAt = {{ music.sampled_at or 0 }};
+  var initialDelta = sampledAt > 0 ? (Date.now() / 1000 - sampledAt) : 0;
+  if (!playing || Math.abs(initialDelta) > 300) initialDelta = 0;
+  var startedAt = Date.now() / 1000 - position - initialDelta;
+  var posEl = document.querySelector("[data-music-position]");
+  var barEl = document.querySelector("[data-music-bar]");
+  function two(n){ return n < 10 ? "0" + n : "" + n; }
+  function fmt(sec){
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    if (h) return h + ":" + two(m) + ":" + two(s);
+    return m + ":" + two(s);
+  }
+  function tick(){
+    var pos = playing ? Date.now() / 1000 - startedAt : position;
+    if (duration > 0) pos = Math.min(duration, pos);
+    var text = fmt(pos);
+    if (posEl) posEl.textContent = text;
+    if (barEl && duration > 0) barEl.style.width = Math.max(0, Math.min(100, pos / duration * 100)) + "%";
+  }
+  tick();
+  if (playing) setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+</body></html>

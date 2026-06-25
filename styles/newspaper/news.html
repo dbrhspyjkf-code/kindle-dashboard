@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* news 页:报纸自适应填充。报头 nameplate + 日期栏 + 多条 RSS 摘要按容器高度自动铺满
+   (短讯多并、长文缩字铺满,引擎见 shared/news_fit)。衬线大标题=报纸感;栏线/字重/留白分层,纯灰度。 */
+.news-fit{flex:1;min-height:0;overflow:hidden;--news-fs:16px;display:flex;flex-direction:column;}
+.nitem{padding:11px 0 12px;border-top:1px solid var(--line2);flex-shrink:0;}
+.nitem:first-child{border-top:none;padding-top:1px;}
+.nmeta{display:flex;align-items:baseline;gap:8px;font-size:10px;font-weight:800;letter-spacing:1px;
+  text-transform:uppercase;color:var(--ink3);margin-bottom:6px;white-space:nowrap;}
+.nmeta .src{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;max-width:55%;}
+.nmeta .dot{color:var(--ink4);}
+.nmeta .when{color:var(--ink3);font-weight:700;letter-spacing:0.3px;text-transform:none;}
+.nmeta .cat{margin-left:auto;flex-shrink:0;border:1px solid var(--ink);padding:1px 7px;font-size:9px;
+  font-weight:800;letter-spacing:1px;color:var(--ink);}
+/* 标题:衬线(思源宋体,渲染机已装)——报纸头条感;焦点层 */
+.nt{font-family:'Noto Serif CJK SC','Songti SC',serif;font-size:23px;font-weight:800;
+  line-height:1.16;letter-spacing:-0.4px;color:var(--ink);margin-bottom:7px;}
+.nb{font-size:var(--news-fs);line-height:1.6;color:var(--ink2);font-weight:400;text-align:justify;}
+.news-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.news-empty .big{font-size:30px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+</style></head><body>
+{%- set items = news.entries if news else [] -%}
+<div class="plate"><div class="name">{{ news.title }}<span class="sm">{{ t.news_sm }}</span></div><div class="ed">{{ now }}</div></div>
+<div class="dateline"><span>{{ t.news_dateline }}</span><span>{% if news.total %}{{ news.index }} / {{ news.total }} {{ t.news_unit }}{% endif %}</span></div>
+{% if items %}
+<div class="news-fit" data-news-fit>
+  {% for it in items %}
+  <div class="nitem" data-news-item>
+    <div class="nmeta">
+      {% if it.source %}<span class="src">{{ it.source }}</span>{% endif %}
+      {% if it.when %}<span class="dot">·</span><span class="when">{{ it.when }}</span>{% endif %}
+      {% if it.category %}<span class="cat">{{ it.category }}</span>{% endif %}
+    </div>
+    <div class="nt">{{ it.title }}</div>
+    {% if it.summary %}<div class="nb">{{ it.summary }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="news-empty"><div class="big">{{ t.news_empty_big }}</div><div>{{ t.news_empty_hint }}</div></div>
+{% endif %}
+<div class="folio"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span>{{ t.foot_page_news }} · {{ page_no }}/{{ page_total }}</span></div>
+{% include 'shared/news_fit.html' %}
+</body></html>

@@ -24,7 +24,7 @@
 <div class="main">
   <div class="panel col-l">
     <div class="plate" style="align-self:flex-start;">{{ t.printer_progress }}</div>
-    {% set d = [printer.progress,100]|min %}<div class="gz big-gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="6"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#000" stroke-width="6" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="15" stroke="#000" stroke-width="2.2" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.4" fill="#000"/></svg><div class="gv tnum">{{ printer.progress }}%</div></div>
+    {% set d = [printer.progress,100]|min %}<div class="gz big-gz"><svg viewBox="0 0 100 57"><path d="M8,52 A42,42 0 0 1 92,52" fill="none" stroke="#cbcbcb" stroke-width="6"/><path d="M8,52 A42,42 0 0 1 92,52" fill="none"{% if target=='android' %} stroke="var(--a-accent)"{% else %} stroke="#000"{% endif %} stroke-width="6" stroke-dasharray="{{ (d/100*131.9)|round(1) }} 999"/><line x1="50" y1="52" x2="50" y2="15" stroke="#000" stroke-width="2.2" transform="rotate({{ (-90 + d*1.8)|round(1) }} 50 52)"/><circle cx="50" cy="52" r="3.4" fill="#000"/></svg><div class="gv tnum">{{ printer.progress }}%</div></div>
     <div class="fname">{{ printer.task }}</div>
     <span class="state">{{ printer.state_text }}</span>
     <div class="layer tnum">{{ t.printer_layer_prefix }} {{ printer.layer }} / {{ printer.total_layer }}{% if lang=='zh' %} {{ t.printer_layer_suffix }}{% endif %}</div>
@@ -48,9 +48,10 @@
 <div class="main">
   <div class="panel soft" style="flex:1;">
     <div class="idle"><div class="big">{{ printer.state_text if printer else t.printer_offline }}</div><div style="font-size:14px;">{{ t.printer_no_task }}</div>
-    {% if printer %}<div style="margin-top:16px;font-size:13px;font-weight:600;" class="tnum">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}</div>
+    {% if printer %}<div style="margin-top:16px;font-size:13px;font-weight:600;" class="tnum">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}
+</div>
   </div>
 </div>
 {% endif %}
-<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span>{{ t.page_printer }} · 5/5</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span>{{ t.page_printer }} · {{ page_no }}/{{ page_total }}</span></div>
 </body></html>

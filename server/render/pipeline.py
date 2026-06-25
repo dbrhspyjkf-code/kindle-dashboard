@@ -27,13 +27,21 @@ _ROT = {
     270: Image.ROTATE_270,   # 顺时针(默认)
 }
 
-# Chrome/Chromium 可执行文件:环境相关,由安装脚本设 CHROME_BIN;否则自动探测。
+# 渲染用的浏览器:环境相关,由安装脚本设 CHROME_BIN;否则自动探测。
 # 不进 config.yaml(用户业务配置)——用户不该关心二进制路径。
+# 渲染走标准 Chromium 命令行(--headless=new --screenshot),所以任何 Chromium 内核的浏览器
+# (Chrome / Chromium / Edge / Brave / Vivaldi 等)都能用,无需非装 Chrome。
 _CANDIDATES = [
     "/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome",
     "/snap/bin/chromium",
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    # 其它 Chromium 内核浏览器:同样支持 --headless=new --screenshot,渲染效果一致。
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+    "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi",
+    "/usr/bin/microsoft-edge", "/usr/bin/microsoft-edge-stable",
+    "/usr/bin/brave-browser", "/usr/bin/vivaldi",
 ]
 
 
@@ -51,12 +59,41 @@ def _playwright_chrome() -> str:
     return ""
 
 
+def _headless_shell() -> str:
+    """探测 chrome-headless-shell —— Chromium 的专用无头二进制。
+    关键:macOS 上**完整 Chrome 的 `--headless=new` 会在 Dock 闪现图标**(它是真浏览器、会建平台窗口);
+    chrome-headless-shell 是 //content 的轻量壳、不初始化窗口系统,**从不弹 Dock**。所以它优先级最高。
+    探测:我们一键下载落地处(installers/macos/get-headless-shell.sh)+ puppeteer/playwright 缓存 + PATH。"""
+    home = os.path.expanduser("~")
+    patterns = [
+        home + "/Library/Application Support/墨水桌面看板/chrome-headless-shell/*/chrome-headless-shell",
+        home + "/.cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell",
+        home + "/Library/Caches/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-mac*/chrome-headless-shell",
+        home + "/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux*/chrome-headless-shell",
+    ]
+    for pat in patterns:
+        hits = sorted(glob.glob(pat))
+        if hits:
+            return hits[-1]
+    return shutil.which("chrome-headless-shell") or ""
+
+
+def is_headless_shell(path: str) -> bool:
+    """该二进制是不是 chrome-headless-shell(决定渲染要不要加 `--headless=new`:shell 本身就是无头,不能加)。"""
+    return "headless-shell" in os.path.basename(path or "").lower()
+
+
 def find_chrome() -> str:
-    """定位 Chrome/Chromium。优先系统 Chrome,其次 playwright 自带 chromium。找不到返回 ""。"""
+    """定位渲染用浏览器。优先级:CHROME_BIN → **chrome-headless-shell(不弹 Dock)** →
+    系统 Chrome/Chromium/Edge/Brave/Vivaldi → playwright 自带 chromium。找不到返回 ""。"""
     env = os.environ.get("CHROME_BIN")
     if env and os.path.exists(env):
         return env
-    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
+    shell = _headless_shell()    # 优先无头壳:macOS 上它不弹 Dock
+    if shell:
+        return shell
+    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable",
+                 "microsoft-edge", "microsoft-edge-stable", "brave-browser", "vivaldi"):
         p = shutil.which(name)
         if p:
             return p
@@ -153,10 +190,14 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
         scale = min(rc.width / bw, rc.height / bh)
         if scale <= 0:
             scale = 1.0
-        cmd = [
-            # --headless=new(不是旧版 --headless):旧无头模式在 macOS 上仍会初始化 AppKit,
-            # 每轮渲染(默认每 30s)新起的 Chrome 都会在 Dock 弹一下图标,很打扰。新无头模式不创建 Dock 图标。
-            chrome, "--headless=new", "--no-sandbox", "--disable-gpu",
+        # macOS Dock 抖动根因(2026-06-24 纠正):**完整 Chrome 的 `--headless=new` 是真浏览器、会建平台窗口
+        # → 在 Dock 闪一下图标**(此前 CLAUDE.md 记反了)。chrome-headless-shell 本身就是无头壳、不弹 Dock,
+        # 且**不接受 `--headless` flag**(它默认无头)。所以:用 shell 时不加 --headless;用完整 Chrome 才加。
+        cmd = [chrome]
+        if not is_headless_shell(chrome):
+            cmd.append("--headless=new")
+        cmd += [
+            "--no-sandbox", "--disable-gpu",
             "--no-crashpad", "--disable-crash-reporter",
             "--disable-dev-shm-usage", "--hide-scrollbars",
             # 防首启卡顿/后台网络等待(全新 user-data-dir 否则会触发首启流程,在弱机上可拖到超时)

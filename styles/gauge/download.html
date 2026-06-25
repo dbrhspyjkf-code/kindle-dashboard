@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:仪表盘。DL 标牌 + 全局带(5 个读数面板)+ 种子列表(每条一个进度环 + 名称/速度/状态)。
+   进度环延续圆形语言,纯灰度。 */
+.gl{flex-shrink:0;display:flex;gap:10px;margin-bottom:11px;}
+.gl .s{flex:1;border:1.5px solid var(--ink);border-radius:11px;padding:9px 12px;display:flex;flex-direction:column;overflow:hidden;}
+.gl .s.soft{border-color:var(--line2);}
+.gl .s .k{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .s .v{font-size:20px;font-weight:800;letter-spacing:-.5px;line-height:1.1;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .s .v small{font-size:11px;color:var(--ink3);font-weight:600;}
+.dl-list{flex:1;min-height:0;border:1.5px solid var(--line2);border-radius:11px;padding:2px 14px;display:flex;flex-direction:column;overflow:hidden;}
+.tor{padding:7px 0;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:13px;}
+.tor:last-child{border-bottom:none;}
+.ring{width:44px;height:44px;flex-shrink:0;}
+.tor .nm{flex:1;min-width:0;}
+.tor .nm .t{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tor .nm .sub{font-size:10px;color:var(--ink3);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tor .nm .sub b{color:var(--ink2);}
+.tor .stt{font-size:11px;font-weight:700;color:var(--ink3);width:50px;flex-shrink:0;text-align:right;}
+.dl-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.dl-empty .big{font-size:28px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+</style></head><body>
+{%- set d = download -%}
+<div class="cluster"><div class="ttl"><span class="chip">DL</span>{{ t.dl_title }}</div><div class="meta tnum">{{ now }}</div></div>
+<div class="gl">
+  <div class="s"><div class="k">↓ {{ t.dl_dl }}</div><div class="v tnum">{{ d.dl_speed }}</div></div>
+  <div class="s"><div class="k">↑ {{ t.dl_up }}</div><div class="v tnum">{{ d.up_speed }}</div></div>
+  <div class="s soft"><div class="k">{{ t.dl_uploaded }}</div><div class="v tnum">{{ d.uploaded }}</div></div>
+  <div class="s soft"><div class="k">{{ t.dl_ratio }}</div><div class="v tnum">{{ d.ratio }}</div></div>
+  <div class="s soft"><div class="k">{{ t.dl_active }}</div><div class="v tnum">{{ d.active }}<small> / {{ d.total }}</small></div></div>
+</div>
+{% if d.torrents %}
+<div class="dl-list">
+  {% for tr in d.torrents %}
+  <div class="tor">
+    <svg class="ring" viewBox="0 0 48 48"><circle cx="24" cy="24" r="20" fill="none" stroke="#dadada" stroke-width="4"/><circle cx="24" cy="24" r="20" fill="none"{% if target=='android' and tr.state == 'downloading' %} stroke="var(--a-accent)"{% else %} stroke="#000"{% endif %} stroke-width="4" stroke-dasharray="{{ (tr.progress/100*125.66)|round(1) }} 999" transform="rotate(-90 24 24)"/><text x="24" y="28" text-anchor="middle" font-size="14" font-weight="800">{{ tr.progress }}</text></svg>
+    <div class="nm">
+      <div class="t">{{ tr.name }}</div>
+      <div class="sub tnum">↓<b>{{ tr.dl }}</b> ↑<b>{{ tr.up }}</b> · {{ t.dl_ratio }} <b>{{ tr.ratio }}</b> · {{ tr.size }}{% if tr.state == 'downloading' and tr.eta != '—' %} · {{ t.dl_eta }} {{ tr.eta }}{% endif %}</div>
+    </div>
+    {% if target=='android' %}<button class="act ghost" style="flex-shrink:0;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}
+    <div class="stt">{{ tr.state_text }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="dl-empty"><div class="big">{{ t.dl_empty }}</div></div>
+{% endif %}
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if d.errors %}{{ d.errors|length }} {{ t.dl_offline }}{% endif %}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span>{{ page_no }}/{{ page_total }}</span></div>
+</body></html>

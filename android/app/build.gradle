@@ -1,0 +1,85 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ── 签名材料从本地文件 / 环境变量读,绝不进 git ───────────────────────────────
+// 优先 android/keystore.properties(gitignore 已排除),其次环境变量;都没有=release 不签名
+// (debug 构建照常,不受影响)。生成 keystore + 出签名包的步骤见 docs/android-release.md。
+def ksProps = new Properties()
+def hasKeystore = false
+def ksPropsFile = rootProject.file('keystore.properties')
+if (ksPropsFile.exists()) {
+    ksProps.load(new FileInputStream(ksPropsFile))
+    hasKeystore = ksProps.getProperty('storeFile') != null
+} else if (System.getenv('KINDLEDASH_KEYSTORE')) {
+    ksProps.setProperty('storeFile', System.getenv('KINDLEDASH_KEYSTORE'))
+    ksProps.setProperty('storePassword', System.getenv('KINDLEDASH_STORE_PASSWORD') ?: '')
+    ksProps.setProperty('keyAlias', System.getenv('KINDLEDASH_KEY_ALIAS') ?: '')
+    ksProps.setProperty('keyPassword', System.getenv('KINDLEDASH_KEY_PASSWORD') ?: '')
+    hasKeystore = true
+}
+
+android {
+    namespace 'com.kindledash.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.kindledash.app'
+        // 一个包通吃 4.2~现代:minSdk 17(装得上安卓 4.2)。现代库(appcompat/activity/
+        // security-crypto/zxing)声明 minSdk21,靠 AndroidManifest 的 tools:overrideLibrary 压进来;
+        // 运行时按 Build.VERSION.SDK_INT 守卫——<21 的 4.x 极简路径一个现代库都不碰
+        // (见 MainActivity.startLegacy / Prefs / LegacySetupActivity)。
+        minSdk 17                 // 安卓 4.2(老系统兼容方案;5.0+ 走现状全功能)
+        targetSdk 34
+        versionCode 2             // v2:原生设置页 + 图标/启动图 + 签名 release
+        versionName '2.0'
+    }
+
+    signingConfigs {
+        if (hasKeystore) {
+            release {
+                storeFile file(ksProps.getProperty('storeFile'))
+                storePassword ksProps.getProperty('storePassword')
+                keyAlias ksProps.getProperty('keyAlias')
+                keyPassword ksProps.getProperty('keyPassword')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false   // 极薄壳无需混淆,省心
+            if (hasKeystore) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        // 对齐 kotlin-stdlib 各 jdk 变体到同一版本。kotlin 1.8 起 jdk7/jdk8 的类已并入主 stdlib,
+        // 若版本不一致(zxing 拉 jdk8:1.6.21 + androidx 拉 stdlib:1.8.22)会重复类、构建失败。
+        // (原先 GeckoView 在时顺带对齐了版本,移除后冲突暴露,故显式锁定。)
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+    }
+}
+
+dependencies {
+    // 看板用系统自带 WebView(android.webkit.WebView)渲染,不打包浏览器引擎 ——
+    // 安卓 5.0+ 设备均内置 WebView,且自 5.0 起可经应用商店独立更新到新版 Chromium 内核。
+    // 好处:APK 仅几 MB(GeckoView 方案要 ~300MB)。代价:渲染质量取决于设备 WebView 版本,
+    // 极旧/从未更新的 WebView 可能渲染不了现代 CSS(grid 等)—— 已在目标真机实测验证。
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.activity:activity:1.8.2'
+    // 令牌加密存储(API 23+ 走 Keystore;21~22 自动回退明文,见 Prefs.java)
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    // 扫码配置(扫设置页生成的二维码)
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+}

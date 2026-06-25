@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 一个 minSdk17 包通吃 4.2~现代。appcompat/activity/security-crypto/zxing 声明 minSdk21,
+         用 overrideLibrary 压住 manifest merger,让它们能打进 minSdk17 的包。
+         安全前提:运行时 Build.VERSION.SDK_INT < 21 的 4.x 极简路径绝不实际调用这些库
+         (见 MainActivity.startLegacy / Prefs(SDK_INT>=23 才加密) / LegacySetupActivity)。
+         库清单按 manifest merger 编译报错精确补全。 -->
+    <uses-sdk tools:overrideLibrary="androidx.appcompat,androidx.appcompat.resources,androidx.activity,androidx.security.crypto,com.google.crypto.tink,com.journeyapps.barcodescanner,com.google.zxing.client.android" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 在线更新:下载新版 APK 后拉起系统安装器(API 26+ 需此权限 + 用户授权"未知来源") -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 扫描设置页二维码配置服务器/令牌 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.KindleDash">
+
+        <!-- 看板主界面(系统 WebView 全屏)。配过=直接进;没配过=onCreate 跳到 SetupActivity。
+             启动主题=Splash(冷启动显示启动画面;Android 12+ 走 SplashScreen API)。
+             configChanges 拦截旋转/尺寸变化,避免重建 WebView。 -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.KindleDash.Splash"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 首次配置页(唯一的原生界面):服务器地址 + 令牌 + 扫码 + 局域网发现 -->
+        <activity
+            android:name=".SetupActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- 老系统(安卓 4.x,SDK_INT<21)极简手填配置页:纯 android.app.Activity,
+             零现代库依赖(不用 AppCompat/zxing),主题用 4.x 也有的 DeviceDefault(Material 是 21+,4.x 无)。
+             4.x 启动且未配置时由 MainActivity.startLegacy 拉起。施工图 §3.3。 -->
+        <activity
+            android:name=".LegacySetupActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- 原生分类设置页(v2):schema 驱动,读 /api/schema+/api/config、改完 POST /api/config -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.KindleDash.Native"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- 应用内网页(设置页 module_list「在网页里改」打开服务端 /setup) -->
+        <activity
+            android:name=".WebPageActivity"
+            android:exported="false"
+            android:theme="@style/Theme.KindleDash.Native"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- 在线更新下载的 APK 经 FileProvider 以 content:// 交给系统安装器(Android 7+ 必需)。 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- 锁竖屏的扫码界面(覆盖 ZXing 默认横屏 CaptureActivity)。 -->
+        <activity
+            android:name=".PortraitCaptureActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:stateNotNeeded="true"
+            android:theme="@style/zxing_CaptureTheme"
+            android:windowSoftInputMode="stateAlwaysHidden" />
+
+    </application>
+</manifest>

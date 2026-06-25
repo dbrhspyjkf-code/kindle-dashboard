@@ -5,5 +5,7 @@ Pillow==11.2.1
 lunardate==0.2.2
 Jinja2==3.1.4
 PyYAML>=5.4
-playwright>=1.40
+# playwright 不进默认依赖:它自带 ~130MB 的 node 驱动,而渲染并不用它(用 Chrome/Edge 命令行截图)。
+# 仅当一台浏览器都没有、需要自动下载内置 chromium 时,安装脚本才按需临时装(见 bootstrap.sh / install.sh)。
+zeroconf>=0.131
 rumps>=0.4; sys_platform == "darwin"

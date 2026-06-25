@@ -54,10 +54,11 @@
   <div class="main">
     <div class="pane" style="flex:1;">
       <div class="idle"><div class="big">{{ printer.state_text if printer else "OFFLINE" }}</div><div>{{ t.idle_no_task }}</div>
-      {% if printer %}<div style="margin-top:18px;font-size:13px;" class="tnum">{{ t.nozzle_label }} {{ printer.nozzle }}°C · {{ t.bed_label }} {{ printer.bed }}°C</div>{% endif %}</div>
+      {% if printer %}<div style="margin-top:18px;font-size:13px;" class="tnum">{{ t.nozzle_label }} {{ printer.nozzle }}°C · {{ t.bed_label }} {{ printer.bed }}°C</div>{% endif %}
+</div>
     </div>
   </div>
   {% endif %}
-  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span></span><span class="seg"><span class="dim">PAGE</span> 5/5</span></div>
+  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">{% if battery.has %}{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span class="seg"><span class="dim">PAGE</span> {{ page_no }}/{{ page_total }}</span></div>
 </div>
 </body></html>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ 启动画面(SplashScreen API):系统在冷启动自动展示蓝底 + 居中白色看板图标。 -->
+    <style name="Theme.KindleDash.Splash" parent="Theme.KindleDash">
+        <item name="android:windowSplashScreenBackground">@color/brand_blue</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="android:windowSplashScreenAnimationDuration">400</item>
+    </style>
+</resources>

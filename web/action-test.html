@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>动作接口测试台</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --line:#e2e5ea; --ink:#1d2430; --sub:#6b7480;
+          --ok:#1a8a4a; --bad:#c0392b; --accent:#2d6cdf; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.5 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:12px 18px;
+           position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; white-space:nowrap; }
+  header .sp { flex:1; }
+  #search { flex:1; min-width:140px; max-width:320px; padding:6px 10px; border:1px solid var(--line);
+            border-radius:8px; font:inherit; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:#fff;
+           border-radius:8px; padding:5px 11px; color:var(--ink); }
+  button:active { transform:translateY(1px); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.warn { border-color:var(--bad); color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  main { max-width:980px; margin:0 auto; padding:16px; }
+  details.group { background:transparent; margin-bottom:14px; }
+  details.group > summary { cursor:pointer; font-size:14px; font-weight:600; color:var(--ink);
+        padding:8px 4px; list-style:none; user-select:none; }
+  details.group > summary::-webkit-details-marker { display:none; }
+  details.group > summary::before { content:"▸"; color:var(--sub); margin-right:7px; font-size:12px; }
+  details.group[open] > summary::before { content:"▾"; }
+  .gcount { color:var(--sub); font-weight:400; font-size:12px; margin-left:6px; }
+  .ghint { color:var(--sub); font-weight:400; font-size:12px; margin-left:8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:11px;
+          padding:10px 13px; margin-bottom:8px; }
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .nm { font-weight:600; min-width:0; }
+  .eid { color:var(--sub); font-size:12px; word-break:break-all; }
+  .pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; white-space:nowrap;
+          background:#eef1f5; color:var(--ink); border:1px solid var(--line); }
+  .pill.on { background:#e7f6ec; color:var(--ok); border-color:#bce4cb; }
+  .pill.off { background:#f0f2f5; color:var(--sub); }
+  .pill.run { background:#e8f0ff; color:var(--accent); border-color:#c5d8fb; }
+  .acts { margin-left:auto; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .acts input, .acts select { font:inherit; padding:4px 8px; border:1px solid var(--line);
+        border-radius:7px; max-width:130px; }
+  .acts .mini { font-size:13px; padding:4px 9px; }
+  .delta { margin-top:7px; font-size:13px; border-top:1px dashed var(--line); padding-top:7px; display:none; }
+  .delta .arrow { color:var(--sub); margin:0 6px; }
+  .delta.ok-line { color:var(--ok); }
+  .delta.bad-line { color:var(--bad); }
+  .raw { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; color:var(--sub);
+         margin-top:3px; word-break:break-all; }
+  .changed { color:var(--ok); font-weight:600; }
+  .nochange { color:var(--sub); }
+  .ro { display:flex; justify-content:space-between; gap:10px; padding:4px 2px; border-bottom:1px solid #eef0f3; font-size:13px; }
+  .ro .v { color:var(--accent); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .err { background:#fff4f3; border:1px solid #f3c8c2; color:var(--bad);
+         border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:13px; white-space:pre-wrap; }
+  .muted { color:var(--sub); font-size:13px; padding:6px 2px; }
+  h2.sec { font-size:13px; color:var(--sub); margin:22px 2px 8px; font-weight:600; letter-spacing:.3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎛️ 动作接口测试台</h1>
+  <input id="search" placeholder="按名称筛选实体…">
+  <span class="sp"></span>
+  <span id="status" class="muted">未加载</span>
+  <button id="refresh" class="primary">刷新</button>
+</header>
+<main id="root"><p class="muted">正在加载…</p></main>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const root = document.getElementById("root");
+const statusEl = document.getElementById("status");
+let LAST = null;
+
+function headers(json){ const h={}; if(TOKEN) h["X-Access-Token"]=TOKEN; if(json) h["Content-Type"]="application/json"; return h; }
+const esc = s => String(s ?? "").replace(/[&<>"]/g,c=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+const slug = s => String(s).replace(/[^a-zA-Z0-9_]/g,"_");
+
+async function fetchState(){
+  const r = await fetch("/api/action-state",{headers:headers()});
+  if(r.status===401) throw new Error("401 未授权:URL 里缺 ?token=，或令牌不对");
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error||"读取状态失败");
+  return j;
+}
+
+// ===== 当前状态文字(点前/点后对照用)=====
+function entryStateText(e){
+  if(!e) return "?";
+  if(e.kind==="cover")   return e.state + (e.position!=null?` ${e.position}%`:"");
+  if(e.kind==="climate") return e.state + (e.target_temp!=null?` 目标${e.target_temp}°`:"");
+  if(e.kind==="media")   return e.state + (e.title?` · ${e.title}`:"");
+  return String(e.state);
+}
+function printerState(p){ if(!p||!p.online) return "离线"; return (p.status||"?")+(p.stage?" / "+p.stage:"")+" "+(p.progress||0)+"%"; }
+function torrentState(t){ return t.state+" "+t.progress+"%"; }
+function pill(txt, on){
+  const t=String(txt).toLowerCase();
+  let extra="";
+  if(on===true) extra=" on"; else if(on===false) extra=" off";
+  else if(/down|seed|check|print|run|play|cool|heat|open|home|armed/.test(t)) extra=" run";
+  else if(/off|closed|idle|paused|disarm|away|离线|unavail|unknown/.test(t)) extra=" off";
+  return `<span class="pill${extra}">${esc(txt)}</span>`;
+}
+
+function findEntry(data, eid){
+  const g=(data&&data.ha&&data.ha.groups)||{};
+  for(const k in g){ const f=g[k].find(e=>e.entity_id===eid); if(f) return f; }
+  return null;
+}
+function getCurrent(data, card){
+  const k=card.dataset.kind;
+  if(k==="ha") return entryStateText(findEntry(data, card.dataset.eid));
+  if(k==="printer") return data&&data.printer?printerState(data.printer):"?";
+  if(k==="torrent"){ const t=((data&&data.torrents&&data.torrents.items)||[]).find(x=>x.id==card.dataset.id&&x.client===card.dataset.client); return t?torrentState(t):"?"; }
+  return "?";
+}
+
+// ===== 每个 kind 的控件 =====
+function btn(act,label,cls){ return `<button class="mini ${cls||''}" data-act="${act}">${label}</button>`; }
+function controls(e){
+  const k=e.kind;
+  if(k==="toggle") return btn("toggle","切换")+btn("on","开")+btn("off","关");
+  if(k==="lock")   return btn("on","锁")+btn("off","解锁");
+  if(k==="cover")  return btn("on","打开")+btn("off","关闭")+btn("stop","停止");
+  if(k==="climate"){
+    const modes=(e.hvac_modes||[]);
+    let h=btn("on","开")+btn("off","关");
+    h+=`<input type="number" data-for="set_temp" placeholder="温度" value="${e.target_temp!=null?esc(e.target_temp):''}" style="max-width:74px">`+btn("set_temp","设温度");
+    if(modes.length){ h+=`<select data-for="set_mode">`+modes.map(m=>`<option value="${esc(m)}"${m===e.state?' selected':''}>${esc(m)}</option>`).join("")+`</select>`+btn("set_mode","设模式"); }
+    return h;
+  }
+  if(k==="media") return btn("toggle","播放/暂停")+btn("prev","⏮")+btn("next","⏭")+btn("vol_down","🔉")+btn("vol_up","🔊")+btn("mute","静音")+btn("stop","停");
+  if(k==="select"){ const o=(e.options||[]); return `<select data-for="select_option">`+o.map(x=>`<option value="${esc(x)}"${x===e.state?' selected':''}>${esc(x)}</option>`).join("")+`</select>`+btn("select_option","应用"); }
+  if(k==="number"){ const a=e.min!=null?` min="${esc(e.min)}"`:"", b=e.max!=null?` max="${esc(e.max)}"`:"", s=e.step!=null?` step="${esc(e.step)}"`:""; return `<input type="number" data-for="set_value" value="${esc(e.state)}"${a}${b}${s} style="max-width:90px">`+(e.unit?`<span class="muted">${esc(e.unit)}</span>`:"")+btn("set_value","设置"); }
+  if(k==="text")   return `<input type="text" data-for="set_value" value="${esc(e.value||'')}" placeholder="文本">`+btn("set_value","设置");
+  if(k==="button") return btn("press","按一下","primary");
+  if(k==="scene")  return btn("activate","激活","primary");
+  if(k==="alarm")  return `<input type="text" data-for="code" placeholder="code(可选)" style="max-width:96px">`+btn("arm_home","在家布防")+btn("arm_away","离家布防")+btn("arm_night","夜间布防")+btn("disarm","撤防","warn");
+  return "";
+}
+function haCard(e){
+  const on = (e.on===true)?true:(e.on===false?false:undefined);
+  return `<div class="card" data-kind="ha" data-eid="${esc(e.entity_id)}" data-name="${esc(e.name)}">
+    <div class="row">
+      <div style="min-width:0">
+        <div class="nm">${esc(e.name)} <span class="state-pill">${pill(entryStateText(e), on)}</span></div>
+        <div class="eid">${esc(e.entity_id)}</div>
+      </div>
+      <div class="acts">${controls(e)}</div>
+    </div>
+    <div class="delta"></div>
+  </div>`;
+}
+
+const KIND_ORDER=["toggle","cover","climate","media","lock","select","number","alarm","scene","button","text"];
+const KIND_LABEL={toggle:"开关类(灯/插座/风扇/脚本…)",cover:"窗帘 / 卷帘",climate:"空调 / 温控",media:"媒体播放",lock:"门锁",select:"选择器",number:"数值",alarm:"安防(布防/撤防)",scene:"场景",button:"按钮(按一下)",text:"文本"};
+
+function render(data){
+  statusEl.textContent="已加载 · "+new Date().toLocaleTimeString();
+  const parts=[];
+  const ha=data.ha||{configured:false};
+  parts.push(`<h2 class="sec">智能家居 (Home Assistant)</h2>`);
+  if(!ha.configured){ parts.push(`<p class="muted">未配置 HA(设置页填地址+令牌)。</p>`); }
+  else if(ha.error){ parts.push(`<div class="err">${esc(ha.error)}</div>`); }
+  else {
+    const g=ha.groups||{};
+    const keys=KIND_ORDER.filter(k=>g[k]&&g[k].length);
+    for(const k of keys){
+      const list=g[k]; const open=list.length<=12;
+      parts.push(`<details class="group"${open?' open':''}><summary>${esc(KIND_LABEL[k]||k)}<span class="gcount">${list.length}</span></summary>${list.map(haCard).join("")}</details>`);
+    }
+    // 只读传感器
+    const ro=ha.readonly||[];
+    if(ro.length){
+      parts.push(`<details class="group"><summary>只读传感器 / 状态<span class="gcount">${ro.length}</span><span class="ghint">只显示数值,无控制</span></summary>`
+        + ro.map(s=>`<div class="ro" data-name="${esc(s.name)}"><span>${esc(s.name)} <span class="eid">${esc(s.entity_id)}</span></span><span class="v">${esc(s.state)}${esc(s.unit?(' '+s.unit):'')}</span></div>`).join("")
+        + `</details>`);
+    }
+  }
+  // 打印机(仅显示;控制已移除——经 HA 拓竹云模式控制指令到不了打印机)
+  parts.push(`<h2 class="sec">3D 打印机 <span class="muted" style="font-weight:400">仅显示,不可控(HA 云模式限制)</span></h2>`);
+  const pr=data.printer||{configured:false};
+  if(!pr.configured) parts.push(`<p class="muted">未配置打印机。</p>`);
+  else if(pr.error) parts.push(`<div class="err">${esc(pr.error)}</div>`);
+  else parts.push(`<div class="card"><div class="row"><div><div class="nm">打印机 <span class="state-pill">${pill(printerState(pr))}</span></div><div class="eid">任务:${esc(pr.task||"--")}</div></div></div></div>`);
+  // 下载
+  parts.push(`<h2 class="sec">下载任务</h2>`);
+  const to=data.torrents||{configured:false};
+  if(!to.configured) parts.push(`<p class="muted">未配置下载器。</p>`);
+  else {
+    for(const e of (to.errors||[])) parts.push(`<div class="err">${esc(e)}</div>`);
+    const items=to.items||[];
+    if(!items.length) parts.push(`<p class="muted">没有种子任务。</p>`);
+    for(const t of items) parts.push(`<div class="card" data-kind="torrent" data-client="${esc(t.client)}" data-id="${esc(t.id)}" data-name="${esc(t.name)}"><div class="row"><div style="min-width:0"><div class="nm">${esc(t.name||"(未命名)")} <span class="state-pill">${pill(torrentState(t))}</span></div><div class="eid">${esc(t.client)} · ${esc(t.id)}</div></div><div class="acts">${btn("pause","暂停")}${btn("resume","恢复")}</div></div><div class="delta"></div></div>`);
+  }
+  root.innerHTML=parts.join("");
+  applyFilter();
+}
+
+// ===== 执行动作 =====
+function readValue(card, action){
+  const el = card.querySelector(`[data-for="${action}"]`) || (action==="disarm"?card.querySelector('[data-for="code"]'):null);
+  return el ? el.value : undefined;
+}
+async function doAction(card, action){
+  const k=card.dataset.kind;
+  if((k==="ha"&&action==="disarm")) { if(!confirm("『撤防』会解除安防警戒。确定?")) return; }
+  const value=readValue(card, action);
+  const before=getCurrent(LAST, card);
+  const delta=card.querySelector(".delta"); delta.style.display=""; delta.className="delta"; delta.innerHTML=`发送 <b>${esc(action)}</b>${value!==undefined?` = ${esc(value)}`:""} …`;
+
+  let url, body;
+  if(k==="ha"){ url="/api/action/ha"; body={entity_id:card.dataset.eid, action}; if(value!==undefined&&value!=="") body.value=value; }
+  else if(k==="torrent"){ url="/api/action/torrent"; body={client:card.dataset.client, id:card.dataset.id, action}; }
+
+  card.querySelectorAll("button").forEach(b=>b.disabled=true);
+  let res;
+  try{ const r=await fetch(url,{method:"POST",headers:headers(true),body:JSON.stringify(body)}); res=await r.json(); }
+  catch(e){ res={ok:false,error:String(e)}; }
+
+  if(!res.ok){ delta.className="delta bad-line"; delta.innerHTML=`❌ 接口失败<div class="raw">${esc(res.error||"")}</div>`; card.querySelectorAll("button").forEach(b=>b.disabled=false); return; }
+
+  delta.innerHTML=`已发送 <b>${esc(action)}</b>,1.5s 后重新读取状态…`;
+  await new Promise(r=>setTimeout(r,1500));
+  let data;
+  try{ data=await fetchState(); LAST=data; }
+  catch(e){ delta.className="delta bad-line"; delta.innerHTML=`动作已发,但刷新状态失败:${esc(e.message)}`; card.querySelectorAll("button").forEach(b=>b.disabled=false); return; }
+
+  const after=getCurrent(data, card);
+  const changed=String(before)!==String(after);
+  delta.className="delta ok-line";
+  delta.innerHTML=`点前 <b>${esc(before)}</b> <span class="arrow">→</span> 点后 <b>${esc(after)}</b> `
+    +(changed?`<span class="changed">✓ 状态已变</span>`:`<span class="nochange">· 主状态未变(可能幂等/本就是该值/此动作不改主状态如调温·按钮/设备未响应)</span>`);
+  // 更新本卡状态徽标(不整页重渲染,保留各分组展开状态)
+  const sp=card.querySelector(".state-pill");
+  if(sp){ const e2=(k==="ha")?findEntry(data,card.dataset.eid):null; sp.innerHTML=(k==="ha")?pill(after, e2?(e2.on===true?true:(e2.on===false?false:undefined)):undefined):pill(after); }
+  card.querySelectorAll("button").forEach(b=>b.disabled=false);
+}
+
+root.addEventListener("click",e=>{ const b=e.target.closest("button[data-act]"); if(!b) return; const c=b.closest(".card"); if(c) doAction(c, b.dataset.act); });
+
+// ===== 搜索筛选 =====
+function applyFilter(){
+  const q=(document.getElementById("search").value||"").trim().toLowerCase();
+  for(const el of root.querySelectorAll("[data-name]")){
+    const hit=!q || (el.dataset.name||"").toLowerCase().includes(q) || (el.dataset.eid||"").toLowerCase().includes(q);
+    el.style.display=hit?"":"none";
+  }
+  if(q){ for(const d of root.querySelectorAll("details.group")) d.open=true; }
+}
+document.getElementById("search").addEventListener("input",applyFilter);
+
+async function reload(){ statusEl.textContent="加载中…"; try{ const d=await fetchState(); LAST=d; render(d); }catch(e){ statusEl.textContent="失败"; root.innerHTML=`<div class="err">${esc(e.message)}</div>`; } }
+document.getElementById("refresh").addEventListener("click",reload);
+reload();
+</script>
+</body>
+</html>

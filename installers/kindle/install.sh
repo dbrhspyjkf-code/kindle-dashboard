@@ -11,6 +11,9 @@ KDIR="$(cd "$(dirname "$0")" && pwd)"
 # (看板占屏会把 SSH 关掉,但 Kindle 重启的开机瞬间 SSH 是通的——这个模式守在那里自动抓住)。
 WAIT=""
 [ "$1" = "--wait" ] && { WAIT=1; shift; }
+# 从 GUI(菜单栏)调用时无终端,设了 SUDO_ASKPASS → 用 sudo -A 弹图形密码框;
+# 命令行下 SUDO_ASKPASS 为空 → 普通 sudo,照常在终端输入密码。
+SUDO="sudo"; [ -n "$SUDO_ASKPASS" ] && SUDO="sudo -A"
 KINDLE_IP="${1:-192.168.15.244}"
 SERVER_URL="$2"
 INTERVAL="$3"
@@ -69,7 +72,7 @@ ensure_usb_route() {
           if ifconfig "$ifc" 2>/dev/null | grep -q "inet 169.254"; then
             echo "   检测到 Kindle USB 接口 $ifc,配 192.168.15.201(可能需 sudo 密码)"
             echo "   (仅给这块 Kindle USB 网卡临时配地址,不影响你的 WiFi/上网;拔线或重启即自动恢复,无需手动还原)"
-            sudo ifconfig "$ifc" 192.168.15.201 255.255.255.0 || true
+            $SUDO ifconfig "$ifc" 192.168.15.201 255.255.255.0 || true
             sleep 1
             ping -c1 -t2 "$KINDLE_IP" >/dev/null 2>&1 && { echo "   ✓ USB 网络已通"; return 0; }
           fi

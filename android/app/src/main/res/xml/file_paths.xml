@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider 共享路径:在线更新下载的 APK 放 app 外部缓存的 update/ 目录,
+     用 content:// URI 交给系统安装器(Android 7+ 不能用 file:// 传 APK)。 -->
+<paths>
+    <external-files-path name="update" path="update/" />
+</paths>

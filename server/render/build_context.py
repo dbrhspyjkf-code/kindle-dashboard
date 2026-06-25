@@ -10,6 +10,7 @@ import calendar as cal_mod
 from datetime import datetime, date, timedelta, timezone
 from functools import lru_cache
 from lunardate import LunarDate
+from server.render import contract
 
 WEEKDAYS_CN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 WEEKDAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -23,6 +24,25 @@ PRINTER_STATUS = {
 PRINTER_SPEED = {
     "zh": {"standard": "标准", "silent": "静音", "sport": "运动", "ludicrous": "狂暴"},
     "en": {"standard": "Standard", "silent": "Silent", "sport": "Sport", "ludicrous": "Ludicrous"},
+}
+DL_STATE = {
+    "zh": {"downloading": "下载中", "seeding": "做种", "paused": "暂停", "checking": "校验",
+           "queued": "排队", "stalled": "卡住", "error": "错误", "other": "其他"},
+    "en": {"downloading": "Downloading", "seeding": "Seeding", "paused": "Paused", "checking": "Checking",
+           "queued": "Queued", "stalled": "Stalled", "error": "Error", "other": "Other"},
+}
+# 音乐播放状态 / 随机 / 循环 的双语映射(数据层产出,模板直接显示;别在模板写死中文)
+MUSIC_STATE = {
+    "zh": {"playing": "播放中", "paused": "已暂停", "stopped": "已停止"},
+    "en": {"playing": "Playing", "paused": "Paused", "stopped": "Stopped"},
+}
+MUSIC_REPEAT = {
+    "zh": {"off": "循环关", "all": "列表循环", "one": "单曲循环"},
+    "en": {"off": "Repeat off", "all": "Repeat all", "one": "Repeat one"},
+}
+MUSIC_SHUFFLE = {
+    "zh": {True: "随机开", False: "随机关"},
+    "en": {True: "Shuffle on", False: "Shuffle off"},
 }
 LUNAR_MONTHS = ["", "正月", "二月", "三月", "四月", "五月", "六月",
                 "七月", "八月", "九月", "十月", "冬月", "腊月"]
@@ -188,6 +208,72 @@ def fmt_countdown(resets_at, lang="zh"):
         return f"{d}天{rh}小时后"
     if h > 0: return f"{h}小时{m}分后"
     return f"{m}分钟后"
+
+
+def _fmt_eta(secs, lang="zh"):
+    """剩余时间秒 → 文字。异常值(qB 8640000=∞、负数、0、None)→ "—"。"""
+    try:
+        secs = int(secs)
+    except (TypeError, ValueError):
+        return "—"
+    if secs <= 0 or secs >= 8640000:
+        return "—"
+    h, m = secs // 3600, (secs % 3600) // 60
+    if lang == "en":
+        return f"{h}h {m}m" if h else f"{m}m"
+    return f"{h}时{m}分" if h else f"{m}分"
+
+
+def _fmt_mmss(secs):
+    """秒 → "m:ss"(歌曲时长/进度;时长≥1小时显 "h:mm:ss")。异常/0 → "0:00"。
+    取整向下截断(与播放器一致:314.76s → 5:14,不进位成 5:15)。"""
+    try:
+        secs = int(float(secs))
+    except (TypeError, ValueError):
+        return "0:00"
+    if secs < 0:
+        secs = 0
+    h, m, s = secs // 3600, (secs % 3600) // 60, secs % 60
+    if h:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m}:{s:02d}"
+
+
+def _music_wall_layout(items):
+    items = list(items or [])
+    n = len(items)
+    if n <= 0:
+        return [], 0, 0, "empty"
+    if n == 1:
+        return items[:1], 1, 1, "one"
+    if n < 4:
+        return items[:2], 2, 1, "two"
+    if n < 9:
+        return items[:4], 2, 2, "four"
+    if n < 16:
+        return items[:9], 3, 3, "nine"
+    if n < 20:
+        return items[:16], 4, 4, "sixteen"
+    return items[:20], 5, 4, "twenty"
+
+
+def _rel_time(ts, now, lang="zh"):
+    """资讯发布时间 → 相对时间(本地化)。ts<=0 / 解析不出 → 空串。"""
+    try:
+        ts = float(ts)
+    except (TypeError, ValueError):
+        ts = 0
+    if ts <= 0:
+        return ""
+    secs = now.timestamp() - ts
+    en = (lang == "en")
+    if secs < 3600:
+        return "just now" if en else "刚刚"
+    if secs < 86400:
+        h = int(secs // 3600)
+        return f"{h}h ago" if en else f"{h}小时前"
+    d = datetime.fromtimestamp(ts, now.tzinfo)
+    return d.strftime("%m/%d") if en else d.strftime("%m.%d")
 
 
 def get_lunar(d):
@@ -471,6 +557,7 @@ def prep_context(now, cache, cfg=None):
         printer = {
             "online": pr.get("online", False),
             "printing": st in ("running", "prepare", "slicing"),
+            "paused": st == "pause",          # 仅 App 控制用(暂停态显示「恢复」);Kindle 模板可无视
             "state_text": state_text,
             "progress": pr.get("progress", 0),
             "task": task,
@@ -487,6 +574,134 @@ def prep_context(now, cache, cfg=None):
             "name": pr.get("printer_name", "A1"),
         }
 
+    # ---- News(RSS 资讯,无状态时间分桶轮播) ----
+    from server.sources.rss import pick_index
+    news_cfg = (cfg or {}).get("news", {}) or {}
+    raw_items = cache.get("news_items") or []
+    nn = len(raw_items)
+    news = {"entries": [], "index": 0, "total": nn,
+            "title": news_cfg.get("title") or ("Headlines" if en else "AI 热点")}
+    if nn:
+        from server.config import schema
+        mode = news_cfg.get("rotate", "random")
+        # news 跟翻页节奏走:**一个完整轮播周期换一条新的,停留期间不变**(用户要求,Kindle/安卓一致)。
+        # 周期 = page_interval × 启用页数 → news 每轮到一次才推进一条(不再用独立 rotate_interval 自走计时)。
+        page_interval = max(5, int((cfg.get("server", {}) or {}).get("page_interval", 20) or 20))
+        n_pages = max(1, len(schema.active_pages(cfg)))
+        period = page_interval * n_pages
+        start = pick_index(nn, mode, now.timestamp(), period)
+        # 给一批候选(默认 12,wrapping);页面自适应引擎按容器高度取前缀显示:
+        # 短讯多并几条、长文只第一条缩字铺满。够填满任何屏。
+        batch = min(nn, 12)
+        picked = [raw_items[(start + k) % nn] for k in range(batch)]
+        news["entries"] = [{
+            "title": it.get("title", ""),
+            "summary": it.get("summary", ""),
+            "source": it.get("source", ""),
+            "category": it.get("category", ""),
+            "when": _rel_time(it.get("ts", 0), now, lang),
+            "link": it.get("link", ""),
+        } for it in picked]
+        news["index"] = start + 1     # 本批起始序号(显示"第 start+1 起 / nn 条")
+
+    # ---- Download(qB + Transmission 合并;adapter 给原始值,这里格式化 + 状态本地化) ----
+    draw = cache.get("download")
+    dl_state = DL_STATE["en"] if en else DL_STATE["zh"]
+    if not draw:
+        download = {"ok": False, "dl_speed": "0", "up_speed": "0", "active": 0, "total": 0,
+                    "ratio": "0.00", "uploaded": "--", "downloaded": "--", "free": "",
+                    "torrents": [], "errors": []}
+    else:
+        ulb, dlb = draw.get("ul_bytes", 0), draw.get("dl_bytes", 0)
+        free = draw.get("free", -1)
+        download = {
+            "ok": True,
+            "dl_speed": fmt_speed(draw.get("dl_speed", 0)),
+            "up_speed": fmt_speed(draw.get("up_speed", 0)),
+            "active": draw.get("active", 0), "total": draw.get("total", 0),
+            "ratio": f"{(ulb / dlb):.2f}" if dlb else "0.00",   # 聚合全局分享率
+            "uploaded": fmt_bytes(ulb), "downloaded": fmt_bytes(dlb),
+            "free": fmt_bytes(free) if isinstance(free, (int, float)) and free >= 0 else "",
+            "errors": draw.get("errors", []) or [],
+            "torrents": [{
+                "name": t.get("name", ""),
+                "progress": t.get("progress", 0),
+                "dl": fmt_speed(t.get("dl", 0)), "up": fmt_speed(t.get("up", 0)),
+                "ratio": f"{t.get('ratio', 0):.2f}",
+                "size": fmt_bytes(t.get("size", 0)),
+                "eta": _fmt_eta(t.get("eta"), lang),
+                "state": t.get("state", "other"),
+                "state_text": dl_state.get(t.get("state", "other"), t.get("state", "")),
+                # 仅 App 控制用(点暂停/恢复→/api/action/torrent);Kindle 模板不读
+                "id": t.get("id", ""),
+                "client": t.get("client", ""),
+            } for t in (draw.get("torrents_raw", []) or [])],
+        }
+
+    # ---- Music(Apple Music / Music.app,Mac agent 推送;无数据→空状态) ----
+    # 采集器(后续独立任务)会把 agent 上报的 {player,track,artwork} 规整成扁平 cache["music"]。
+    # 本层只做契约对齐 + 按 lang 派生文案/进度;缺数据则降级为空状态(has_track=False,诚实降级)。
+    mraw = cache.get("music")
+    music = contract.empty_music()
+    mcfg = ((cfg or {}).get("music", {}) or {})
+    try:
+        pause_idle_after = int(mcfg.get("pause_idle_after", 300) or 0)
+    except (TypeError, ValueError):
+        pause_idle_after = 300
+    if mraw and (mraw.get("name") or mraw.get("has_track")):
+        st = mraw.get("state", "stopped")
+        dur = mraw.get("duration", 0) or 0
+        pos = mraw.get("position", 0) or 0
+        pct = int(max(0, min(100, round(pos / dur * 100)))) if dur > 0 else 0
+        rep = mraw.get("repeat", "off") or "off"
+        shuf = bool(mraw.get("shuffle", False))
+        state_since = mraw.get("state_since") or mraw.get("sampled_at") or 0
+        paused_for = int(max(0, now.timestamp() - state_since)) if st == "paused" and state_since else 0
+        idle_wall = bool(st == "paused" and pause_idle_after > 0 and paused_for >= pause_idle_after)
+        artwork_wall, wall_cols, wall_rows, wall_mode = _music_wall_layout(mraw.get("artwork_wall", []) or [])
+        music.update({
+            "available": True, "has_track": True, "state": st,
+            "state_text": MUSIC_STATE[lang].get(st, MUSIC_STATE[lang]["stopped"]),
+            "name": mraw.get("name") or "--",
+            "artist": mraw.get("artist", "") or "",
+            "album": mraw.get("album", "") or "",
+            "album_artist": mraw.get("album_artist", "") or "",
+            "composer": mraw.get("composer", "") or "",
+            "genre": mraw.get("genre", "") or "",
+            "year": str(mraw.get("year", "") or ""),
+            "duration": dur, "duration_text": _fmt_mmss(dur),
+            "position": pos, "position_text": _fmt_mmss(pos),
+            "progress_pct": pct,
+            "sampled_at": mraw.get("sampled_at", 0) or 0,
+            "state_since": state_since,
+            "paused_for": paused_for,
+            "idle_wall": idle_wall,
+            "shuffle": shuf, "shuffle_text": MUSIC_SHUFFLE[lang][shuf],
+            "repeat": rep, "repeat_text": MUSIC_REPEAT[lang].get(rep, MUSIC_REPEAT[lang]["off"]),
+            "track_number": mraw.get("track_number", 0) or 0,
+            "track_count": mraw.get("track_count", 0) or 0,
+            "loved": bool(mraw.get("loved", False)),
+            "play_count": mraw.get("play_count", 0) or 0,
+            "artwork_url": mraw.get("artwork_url", "") or "",
+            "artwork_wall": artwork_wall,
+            "artwork_wall_cols": wall_cols,
+            "artwork_wall_rows": wall_rows,
+            "artwork_wall_mode": wall_mode,
+            "updated_at": mraw.get("updated_at", "") or "",
+        })
+    elif mraw is not None:
+        # agent 在线但当前无播放:空状态页(模块仍 available,只是没歌)
+        artwork_wall, wall_cols, wall_rows, wall_mode = _music_wall_layout(mraw.get("artwork_wall", []) or [])
+        music["available"] = True
+        music["idle_wall"] = True
+        music["artwork_wall"] = artwork_wall
+        music["artwork_wall_cols"] = wall_cols
+        music["artwork_wall_rows"] = wall_rows
+        music["artwork_wall_mode"] = wall_mode
+        music["sampled_at"] = mraw.get("sampled_at", 0) or 0
+        music["state_since"] = mraw.get("state_since", 0) or 0
+        music["updated_at"] = mraw.get("updated_at", "") or ""
+
     batt = cache.get("kindle_battery")
     battery = {
         "level": batt if batt is not None else "--",
@@ -500,7 +715,12 @@ def prep_context(now, cache, cfg=None):
         "time_hm": now.strftime("%H:%M"),
         "clock": now.strftime("%H:%M:%S"),
         "battery": battery,
+        # 页脚动态页码默认 1/1;真实渲染由各入口(render_all/app_page/preview)按启用页顺序覆盖。
+        "page_no": 1, "page_total": 1,
         "home": home, "ai": ai, "device": device,
         "ha": cache.get("ha") or {"cards": []},   # 采集失败/未配 → 空墙(诚实降级,该页隐藏)
         "printer": printer,
+        "news": news,
+        "download": download,
+        "music": music,
     }

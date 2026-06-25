@@ -31,13 +31,32 @@ STATES = [
     {"entity_id": "binary_sensor.leak", "state": "on",
      "attributes": {"friendly_name": "水浸", "device_class": "moisture"}},
     {"entity_id": "climate.ac", "state": "cool",
-     "attributes": {"friendly_name": "空调", "current_temperature": 26, "temperature": 24}},
+     "attributes": {"friendly_name": "空调", "current_temperature": 26, "temperature": 24,
+                    "hvac_modes": ["off", "cool", "heat", "bogus"]}},
     {"entity_id": "media_player.tv", "state": "playing",
      "attributes": {"friendly_name": "电视", "media_title": "某部名字非常非常长一定会超过十八个字的电影标题"}},
     {"entity_id": "person.me", "state": "home",
      "attributes": {"friendly_name": "我"}},
     {"entity_id": "vacuum.robot", "state": "docked",
      "attributes": {"friendly_name": "扫地机"}},
+    # 新增可控 kind(spec ha-page-interaction-spec.md §2)
+    {"entity_id": "select.fan", "state": "中",
+     "attributes": {"friendly_name": "风扇档位", "options": ["低", "中", "高"]}},
+    {"entity_id": "input_select.mode", "state": "day",
+     "attributes": {"friendly_name": "模式", "options": ["day", "night"]}},
+    {"entity_id": "number.target", "state": "55",
+     "attributes": {"friendly_name": "目标湿度", "min": 30, "max": 80, "step": 5,
+                    "unit_of_measurement": "%"}},
+    {"entity_id": "input_number.vol", "state": "7",
+     "attributes": {"friendly_name": "音量", "min": 0, "max": 10, "step": 1}},
+    {"entity_id": "button.bell", "state": "2026-06-23T10:00:00+00:00",
+     "attributes": {"friendly_name": "门铃"}},
+    {"entity_id": "input_button.ping", "state": "unknown",
+     "attributes": {"friendly_name": "Ping"}},
+    {"entity_id": "scene.movie", "state": "2026-06-23T09:00:00+00:00",
+     "attributes": {"friendly_name": "观影"}},
+    {"entity_id": "alarm_control_panel.home", "state": "armed_home",
+     "attributes": {"friendly_name": "安防"}},
 ]
 BY_ID = {s["entity_id"]: s for s in STATES}
 
@@ -184,6 +203,100 @@ def test_list_printers(monkeypatch=None):
         }]
     finally:
         mod._fetch_states = orig
+
+
+# ============================================================
+# 新可控 kind 分类 + 面板元数据(spec ha-page-interaction-spec.md §2/§3)
+# ============================================================
+def test_select_classification():
+    c = card("select.fan")
+    assert c["kind"] == "select" and c["state_text"] == "中"
+    assert c["value"] == "" and c["on"] is False        # 不改 Kindle 主次
+    assert c["meta"] == {"options": ["低", "中", "高"], "current": "中"}
+    assert card("input_select.mode")["kind"] == "select"
+
+
+def test_number_classification():
+    c = card("number.target")
+    assert c["kind"] == "number" and c["state_text"] == "55" and c["value"] == ""
+    m = c["meta"]
+    assert m["min"] == 30 and m["max"] == 80 and m["step"] == 5
+    assert m["unit"] == "%" and m["value"] == 55.0
+    assert card("input_number.vol")["kind"] == "number"
+
+
+def test_button_and_scene_classification():
+    assert card("button.bell")["kind"] == "button"
+    assert card("input_button.ping")["kind"] == "button"
+    assert card("scene.movie")["kind"] == "scene"
+    # 一次性动作(A 类单击直发)不带面板 meta
+    assert "meta" not in card("button.bell")
+    assert "meta" not in card("scene.movie")
+
+
+def test_alarm_classification():
+    c = card("alarm_control_panel.home")
+    assert c["kind"] == "alarm" and c["on"] is False     # 不给 Kindle 加重音边框
+    assert c["state_text"] == "armed_home" and c["meta"] == {"state": "armed_home"}
+
+
+def test_panel_meta_for_cover_climate_media():
+    assert card("cover.blind")["meta"] == {"on": True, "position": 60}
+    cm = card("climate.ac")["meta"]
+    assert cm["on"] is True and cm["mode"] == "cool"
+    assert cm["current"] == 26.0 and cm["target"] == 24.0
+    assert cm["modes"] == ["off", "cool", "heat"]        # bogus 被过滤
+    assert card("media_player.tv")["meta"]["title"].startswith("某部")
+
+
+def _render_kindle(style, sd, card_obj):
+    from server.render import styles, contract
+    ctx = contract.empty_context(); ctx["lang"] = "zh"; ctx["ha"] = {"cards": [card_obj]}
+    return styles.render_page(style, "ha", ctx, d=sd, target="kindle")
+
+
+def test_kindle_render_byte_identical_for_new_kinds():
+    """🔴 命根子:Kindle(target=kindle)出的 HTML 逐字节不受本次改动影响。
+    ① 追加的 meta 字段绝不进 Kindle;② 新 kind 分类后,Kindle 渲染与「当成 text 卡」逐字节一致。"""
+    import copy
+    from server.render import styles
+    sd = os.path.join(ROOT, "styles")
+    new_kinds = {"select.fan", "number.target", "button.bell", "scene.movie", "alarm_control_panel.home"}
+    for eid in new_kinds | {"cover.blind", "climate.ac", "media_player.tv"}:
+        c = card(eid)
+        no_meta = copy.deepcopy(c); no_meta.pop("meta", None)
+        as_text = copy.deepcopy(no_meta); as_text["kind"] = "text"
+        for style in styles.list_styles(sd):
+            real = _render_kindle(style, sd, c)
+            assert real == _render_kindle(style, sd, no_meta), f"{style}/{eid}: meta 泄漏进 Kindle!"
+            if eid in new_kinds:   # 新 kind:必须与旧「兜底 text 卡」渲染逐字节相同
+                assert real == _render_kindle(style, sd, as_text), \
+                    f"{style}/{eid}: 新 kind 改变了 Kindle 渲染!"
+
+
+def test_android_routes_kinds_to_three_tiers():
+    """android 出口:A 类 data-action 直发、B 类 data-panel 弹面板、C 类 data-detail;Kindle 零泄漏。"""
+    from server.render import styles, contract
+    sd = os.path.join(ROOT, "styles")
+    cards = [card(e) for e in ("light.living", "scene.movie", "button.bell", "lock.front",
+                               "cover.blind", "climate.ac", "media_player.tv", "select.fan",
+                               "number.target", "alarm_control_panel.home", "sensor.temp")]
+    ctx = contract.empty_context(); ctx["lang"] = "zh"; ctx["ha"] = {"cards": cards}
+    h = styles.render_page("style_a", "ha", ctx, d=sd, target="android")
+    # A 类直发
+    assert 'data-entity="scene.movie" data-cmd="activate"' in h
+    assert 'data-entity="button.bell" data-cmd="press"' in h
+    assert 'data-entity="light.living" data-cmd="toggle"' in h
+    assert 'data-entity="lock.front" data-cmd="off"' in h    # 已锁 → 单击解锁
+    # B 类弹面板
+    for k in ("cover", "climate", "media", "select", "number", "alarm"):
+        assert f'data-panel="{k}"' in h, f"缺 data-panel={k}"
+    assert '"options": ["低", "中", "高"]' in h or '&#34;options&#34;' in h or "options" in h
+    # C 类只读详情(传感器)
+    assert 'data-detail="客厅温度"' in h
+    # Kindle 零泄漏
+    hk = styles.render_page("style_a", "ha", ctx, d=sd, target="kindle")
+    assert "data-panel" not in hk and "data-action" not in hk and "data-detail" not in hk
 
 
 if __name__ == "__main__":

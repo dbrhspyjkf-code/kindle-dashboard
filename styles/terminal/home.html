@@ -57,6 +57,6 @@
       <div style="font-size:14px;font-weight:700;">{% if home.term %}{{ home.term }}{% else %}--{% endif %}</div>{% endif %}
     </div>
   </div>
-  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span></span><span class="seg"><span class="dim">PAGE</span> 1/5</span></div>
+  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">{% if battery.has %}{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span class="seg"><span class="dim">PAGE</span> {{ page_no }}/{{ page_total }}</span></div>
 </div>
 </body></html>

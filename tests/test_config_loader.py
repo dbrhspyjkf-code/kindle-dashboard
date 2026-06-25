@@ -79,30 +79,31 @@ def test_secret_preserved_when_mask_submitted():
     assert cm.get()["weather"]["key"] == "realkey"
 
 
-def test_device_list_secret_preserved():
+def test_module_list_secret_preserved():
+    """module_list 的 secret 字段提交空 → 保留原值(以下载器密码为例;同逻辑覆盖所有带 secret 的列表段)。"""
     p = _tmp()
     cm = loader.ConfigManager(p)
-    cm.save({"devices": {"machines": [
-        {"name": "srv", "mode": "ssh", "host": "1.2.3.4", "ssh_user": "u", "ssh_password": "pw"}]}})
+    cm.save({"downloaders": {"clients": [
+        {"name": "qb", "type": "qbittorrent", "host": "1.2.3.4", "port": 8080, "password": "pw"}]}})
     # 再保存,密码提交空 → 保留
-    cm.save({"devices": {"machines": [
-        {"name": "srv", "mode": "ssh", "host": "1.2.3.4", "ssh_user": "u", "ssh_password": ""}]}})
-    assert cm.get()["devices"]["machines"][0]["ssh_password"] == "pw"
+    cm.save({"downloaders": {"clients": [
+        {"name": "qb", "type": "qbittorrent", "host": "1.2.3.4", "port": 8080, "password": ""}]}})
+    assert cm.get()["downloaders"]["clients"][0]["password"] == "pw"
 
 
-def test_device_secret_no_crosstalk_after_delete():
-    """删/重排设备后,SSH 密码按 name 匹配回填,绝不串到另一台(High bug 复现)。"""
+def test_module_list_secret_no_crosstalk_after_delete():
+    """删/重排列表项后,secret 按 name(item_fields[0]) 匹配回填,绝不串到另一项(High bug 复现)。"""
     p = _tmp()
     cm = loader.ConfigManager(p)
-    cm.save({"devices": {"machines": [
-        {"name": "A", "mode": "ssh", "host": "10.0.0.1", "ssh_user": "u", "ssh_password": "pwA"},
-        {"name": "B", "mode": "ssh", "host": "10.0.0.2", "ssh_user": "u", "ssh_password": "pwB"}]}})
+    cm.save({"downloaders": {"clients": [
+        {"name": "A", "type": "qbittorrent", "host": "10.0.0.1", "port": 8080, "password": "pwA"},
+        {"name": "B", "type": "transmission", "host": "10.0.0.2", "port": 9091, "password": "pwB"}]}})
     # 删掉 A、只留 B,B 的密码提交掩码(用户没改)。旧逻辑按下标会把 A 的 pwA 串给 B。
-    cm.save({"devices": {"machines": [
-        {"name": "B", "mode": "ssh", "host": "10.0.0.2", "ssh_user": "u", "ssh_password": loader.SECRET_MASK}]}})
-    m = cm.get()["devices"]["machines"]
-    assert len(m) == 1 and m[0]["name"] == "B"
-    assert m[0]["ssh_password"] == "pwB"      # 按 name 匹配,不串成 pwA
+    cm.save({"downloaders": {"clients": [
+        {"name": "B", "type": "transmission", "host": "10.0.0.2", "port": 9091, "password": loader.SECRET_MASK}]}})
+    c = cm.get()["downloaders"]["clients"]
+    assert len(c) == 1 and c[0]["name"] == "B"
+    assert c[0]["password"] == "pwB"      # 按 name 匹配,不串成 pwA
 
 
 def test_saved_file_is_valid_yaml_no_tmp():

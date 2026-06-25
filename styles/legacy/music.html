@@ -1,0 +1,113 @@
+{# legacy 音乐(浅色 editorial,静态只读):封面 + 曲目信息;无播放时用封面墙/屏保式占位。
+   4.2 老 WebView:不写 JS、不写实时进度;布局只用固定 px、absolute、float。 #}
+{%- set m = music -%}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ now }}{% if m.has_track and not m.idle_wall and m.updated_at %}<br><span class="ink3">{{ t.foot_updated }} {{ m.updated_at }}</span>{% endif %}</div>
+    <div class="kicker">{{ t.music_kicker }}</div>
+    <div class="title">{{ t.music_title if m.has_track and not m.idle_wall else t.music_not_playing }}</div>
+  </div>
+
+  {% if m.has_track and not m.idle_wall %}
+  <div class="main">
+    <div class="abscols">
+      <div class="acol" style="left:0;width:350px;padding-right:18px;border-right:1px solid rgba(0,0,0,.15);">
+        <div class="card" style="width:326px;height:326px;padding:11px;margin:72px auto 0;">
+          <div style="width:100%;height:100%;overflow:hidden;background:#ece8de;background-image:-webkit-repeating-linear-gradient(45deg,#151515 0,#151515 2px,#f5f1e8 2px,#f5f1e8 6px);background-image:repeating-linear-gradient(45deg,#151515 0,#151515 2px,#f5f1e8 2px,#f5f1e8 6px);">
+            {% if m.artwork_url %}
+            <img src="{{ m.artwork_url }}" alt="" style="display:block;width:100%;height:100%;border:0;">
+            {% else %}
+            <div style="position:relative;width:100%;height:100%;background:#ece8de;background-image:-webkit-repeating-linear-gradient(135deg,#555 0,#555 1px,#f5f1e8 1px,#f5f1e8 7px);background-image:repeating-linear-gradient(135deg,#555 0,#555 1px,#f5f1e8 1px,#f5f1e8 7px);">
+              <div style="position:absolute;left:92px;top:82px;width:118px;height:118px;border:5px solid #151515;border-radius:70px;background:#ece8de;"></div>
+              <div style="position:absolute;left:142px;top:133px;width:18px;height:18px;border:3px solid #151515;border-radius:18px;background:#f5f1e8;"></div>
+              <div style="position:absolute;left:96px;top:214px;width:112px;height:4px;background:#151515;"></div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+
+      <div class="acol" style="left:378px;right:0;">
+        <div class="slabel">{{ t.music_now_spinning }}</div>
+        <div style="font-size:34px;line-height:1.18;font-weight:800;color:#151515;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:break-all;">{{ m.name }}</div>
+        <div class="stat-med" style="margin-top:13px;line-height:1.2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1;overflow:hidden;word-break:break-all;">{{ m.artist if m.artist else '--' }}</div>
+
+        <div class="rule"></div>
+
+        <div class="card-soft" style="height:74px;border:1px solid #d2cec5;background:#f5f1e8;padding:9px 12px;overflow:hidden;">
+          <div class="label-sm">{{ t.music_lbl_album }}</div>
+          <div class="ink2" style="font-size:17px;font-weight:800;line-height:1.24;margin-top:5px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:break-all;">
+            {% if m.album %}{{ m.album }}{% else %}--{% endif %}{% if m.album and m.year %} · {% endif %}{% if m.year %}{{ m.year }}{% endif %}
+          </div>
+        </div>
+
+        <div class="clear" style="margin-top:12px;">
+          <div class="card-soft" style="float:left;width:48%;height:70px;margin-right:4%;border:1px solid #d2cec5;background:#f5f1e8;padding:9px 11px;overflow:hidden;">
+            <div class="label-sm">{{ t.music_playback }}</div>
+            <div class="stat-med ell" style="margin-top:5px;">{{ m.state_text }}</div>
+          </div>
+          <div class="card-soft" style="float:left;width:48%;height:70px;border:1px solid #d2cec5;background:#f5f1e8;padding:9px 11px;overflow:hidden;">
+            <div class="label-sm">{{ t.music_length }}</div>
+            <div class="stat-med tnum ell" style="margin-top:5px;">{{ m.duration_text }}</div>
+          </div>
+        </div>
+
+        <div class="clear" style="margin-top:12px;">
+          <div class="card-soft" style="float:left;width:48%;height:70px;margin-right:4%;border:1px solid #d2cec5;background:#f5f1e8;padding:9px 11px;overflow:hidden;">
+            <div class="label-sm">{{ t.music_shuffle }}</div>
+            <div class="stat-med ell" style="margin-top:5px;">{{ m.shuffle_text }}</div>
+          </div>
+          <div class="card-soft" style="float:left;width:48%;height:70px;border:1px solid #d2cec5;background:#f5f1e8;padding:9px 11px;overflow:hidden;">
+            <div class="label-sm">{{ t.music_repeat }}</div>
+            <div class="stat-med ell" style="margin-top:5px;">{{ m.repeat_text }}</div>
+          </div>
+        </div>
+
+        <div class="clear" style="margin-top:12px;">
+          <div class="card-soft" style="float:left;width:48%;height:72px;margin-right:4%;border:1px solid #d2cec5;background:#f5f1e8;padding:8px 10px;overflow:hidden;">
+            <div class="label-sm">{{ t.music_lbl_genre }}</div>
+            <div class="stat-med ell" style="margin-top:5px;">{% if m.genre %}{{ m.genre }}{% else %}--{% endif %}</div>
+          </div>
+          <div class="card-soft" style="float:left;width:48%;height:72px;border:1px solid #d2cec5;background:#f5f1e8;padding:8px 10px;overflow:hidden;">
+            <div class="label-sm">{{ t.music_track }}</div>
+            <div class="stat-med tnum ell" style="margin-top:5px;">{% if m.track_count %}{{ m.track_number }} / {{ m.track_count }}{% else %}--{% endif %}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="main" aria-label="{{ t.music_empty_hint }}">
+    {% if m.artwork_wall %}
+    {%- set mode = m.artwork_wall_mode -%}
+    {%- if mode == 'one' -%}
+      {%- set cols = 1 -%}{%- set size = 360 -%}{%- set gap = 0 -%}{%- set left = 200 -%}{%- set top = 54 -%}
+    {%- elif mode == 'two' -%}
+      {%- set cols = 2 -%}{%- set size = 250 -%}{%- set gap = 18 -%}{%- set left = 121 -%}{%- set top = 109 -%}
+    {%- elif mode == 'four' -%}
+      {%- set cols = 2 -%}{%- set size = 222 -%}{%- set gap = 16 -%}{%- set left = 150 -%}{%- set top = 14 -%}
+    {%- elif mode == 'nine' -%}
+      {%- set cols = 3 -%}{%- set size = 148 -%}{%- set gap = 10 -%}{%- set left = 148 -%}{%- set top = 7 -%}
+    {%- elif mode == 'sixteen' -%}
+      {%- set cols = 4 -%}{%- set size = 110 -%}{%- set gap = 8 -%}{%- set left = 148 -%}{%- set top = 2 -%}
+    {%- else -%}
+      {%- set cols = 5 -%}{%- set size = 108 -%}{%- set gap = 8 -%}{%- set left = 94 -%}{%- set top = 6 -%}
+    {%- endif -%}
+    <div style="width:760px;height:468px;overflow:hidden;padding-top:{{ top }}px;">
+      {% for art in m.artwork_wall %}
+      <div style="float:left;width:{{ size }}px;height:{{ size }}px;margin-left:{% if loop.index0 % cols == 0 %}{{ left }}px{% else %}{{ gap }}px{% endif %};margin-bottom:{{ gap }}px;border:1px solid #d2cec5;background:#f5f1e8;overflow:hidden;">
+        <img src="{{ art.url }}" alt="" style="display:block;width:100%;height:100%;border:0;">
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="width:760px;height:468px;overflow:hidden;text-align:center;">
+      <div style="padding-top:198px;font-size:42px;line-height:1.15;font-weight:800;color:#151515;">{{ t.music_not_playing }}</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%{% endif %}</span><span>{{ t.foot_updated }} {{ m.updated_at or time_hm }}{% if m.has_track and not m.idle_wall %} · {{ t.music_snapshot }}{% endif %}</span></div>
+</div>

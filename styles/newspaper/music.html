@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* 音乐页 / newspaper:报纸音乐版面。歌名=头版标题,艺人/专辑/年份=副标题署名栏,
+   封面=刊登照片,随机/循环/曲目=小栏,进度=版面规则线。
+   Kindle/static:只显歌曲与总时长;android:规则线自走当前时间。彩色仅封面。 */
+.m-lead{flex-shrink:0;margin-bottom:9px;}
+.m-head{font-size:36px;font-weight:800;letter-spacing:-1.2px;line-height:1.0;margin:6px 0 7px;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.m-by{font-size:13px;font-weight:700;color:var(--ink2);letter-spacing:0.3px;
+  border-top:1px solid var(--line2);padding-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.m-by b{font-weight:800;color:var(--ink);}
+.m-cap{width:286px;flex-shrink:0;padding-right:16px;}
+.m-photo{width:100%;aspect-ratio:1/1;border:1px solid var(--ink);overflow:hidden;background:#fff;}
+.m-photo img{display:block;width:100%;height:100%;object-fit:cover;}
+.static .m-photo img{filter:grayscale(1) contrast(1.1);}
+.android .m-photo img{filter:contrast(1.04) saturate(1.04);}
+.m-photo .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.m-photo .ph svg{opacity:.55;}
+.m-photocap{font-size:10px;font-weight:600;color:var(--ink3);letter-spacing:0.5px;margin-top:6px;
+  display:flex;gap:6px;align-items:baseline;}
+.m-photocap .mk{font-weight:800;color:var(--ink);flex-shrink:0;}
+.m-photocap .tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.m-info{flex:1;min-width:0;border-left:1px solid var(--line2);padding-left:16px;display:flex;flex-direction:column;}
+.m-fill{display:block;width:0;}
+.m-barfill{background-image:repeating-linear-gradient(45deg,#000 0,#000 2px,#fff 2px,#fff 4px);}
+.static .live-only{display:none;}
+.android .static-only{display:none;}
+.m-list{margin-top:16px;}
+.android .m-list{margin-top:auto;}
+.m-state{display:inline-block;font-size:11px;font-weight:800;letter-spacing:1.5px;background:var(--ink);color:#fff;padding:3px 12px;margin-top:9px;}
+/* 空状态:刊登照片式真实封面墙;缓存为空时只保留报纸号外标签 */
+.m-wall{flex:1;min-height:0;display:grid;gap:10px;overflow:hidden;position:relative;place-content:center;}
+.m-wall.wall-one{grid-template-columns:420px;}
+.m-wall.wall-two{grid-template-columns:repeat(2,300px);}
+.m-wall.wall-four{grid-template-columns:repeat(2,222px);}
+.m-wall.wall-nine{grid-template-columns:repeat(4,145px);grid-template-rows:repeat(3,145px);}
+.m-wall.wall-sixteen{grid-template-columns:repeat(4,104px);}
+.m-wall.wall-twenty{grid-template-columns:repeat(5,104px);}
+.m-wall.wall-nine .m-tile:first-child{grid-column:span 2;grid-row:span 2;}
+.m-tile{border:1px solid var(--ink);background:#fff;aspect-ratio:1/1;overflow:hidden;}
+.m-tile img{display:block;width:100%;height:100%;object-fit:contain;background:#fff;filter:grayscale(1) contrast(1.1);}
+.android .m-tile img{filter:contrast(1.04) saturate(1.04);}
+.m-idlewrap{flex:1;min-height:0;position:relative;display:flex;}
+.m-idle{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;}
+.m-idle .x{display:inline-block;background:var(--ink);color:#fff;padding:6px 18px;font-size:16px;font-weight:800;letter-spacing:2px;}
+</style></head><body class="{% if target=='android' %}android{% else %}static{% endif %}">
+<div class="plate"><div class="name">{{ t.music_nameplate }}<span class="sm">NOW PLAYING</span></div><div class="ed">{% if music.has_track and not music.idle_wall and music.artist %}{{ music.artist }} · {% endif %}{{ now }}</div></div>
+<div class="dateline"><span>APPLE MUSIC · {{ t.music_now }}</span><span>{% if music.has_track and not music.idle_wall %}{{ music.state_text }}{% else %}{{ t.music_idle }}{% endif %}</span></div>
+{% if music.has_track and not music.idle_wall %}
+<div class="m-lead">
+  <div class="kick">{{ t.music_now }}<span class="aux">{% if music.year %}{{ music.year }}{% endif %}</span></div>
+  <h1 class="m-head">{{ music.name }}</h1>
+  <div class="m-by"><b>{% if music.artist %}{{ music.artist }}{% endif %}</b>{% if music.artist and music.album %} · {% endif %}{% if music.album %}{{ music.album }}{% endif %}{% if music.genre %} · {{ music.genre }}{% endif %}</div>
+</div>
+<div class="main">
+  <div class="col m-cap" style="padding-left:0;">
+    <div class="m-photo">
+      {% if music.artwork_url %}<img src="{{ music.artwork_url }}" alt="">
+      {% else %}<div class="ph"><svg width="84" height="84" viewBox="0 0 24 24" fill="none"
+        stroke="#6f6f6f" stroke-width="1.35"><circle cx="7.5" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        <path d="M10.5 18V5.5l10.5-2.2V14" stroke-linecap="round" stroke-linejoin="round"/></svg></div>{% endif %}
+    </div>
+    <div class="m-photocap"><span class="mk">▲</span><span class="tx">{% if music.album %}{{ music.album }}{% else %}{{ t.music_caption }}{% endif %}</span></div>
+    <span class="m-state">{{ music.state_text }}</span>
+  </div>
+  <div class="col m-info">
+    <div class="kick live-only">{{ t.music_progress }}</div>
+    <div class="kick static-only">{{ t.music_length }}</div>
+    <div class="bd live-only"><div class="top"><span class="k tnum" data-music-position>{{ music.position_text }}</span><span class="v tnum">{{ music.duration_text }}</span></div><div class="bar"><i class="m-barfill" data-music-bar style="width:{{ music.progress_pct }}%"></i></div></div>
+    <div class="bd static-only"><div class="top"><span class="k">{{ t.music_total }}</span><span class="v tnum">{{ music.duration_text }}</span></div><div class="rule dark"></div></div>
+    <div class="m-list">
+      <div class="kick">{{ t.music_modes }}</div>
+      <div class="item"><span class="mk">·</span><span class="tx">{{ music.shuffle_text }}</span></div>
+      <div class="item"><span class="mk">·</span><span class="tx">{{ music.repeat_text }}</span></div>
+      {% if music.track_count %}<div class="item"><span class="mk">·</span><span class="tx">{{ t.music_track }}</span><span class="dt tnum">{{ music.track_number }} / {{ music.track_count }}</span></div>{% endif %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="main m-idlewrap" aria-label="{{ t.music_idle_hint }}">
+  {% if music.artwork_wall %}
+  <div class="m-wall wall-{{ music.artwork_wall_mode }}" aria-hidden="true">
+    {% for art in music.artwork_wall %}<div class="m-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+  </div>
+  {% else %}
+  <div class="m-idle"><span class="x">{{ t.music_idle }}</span></div>
+  {% endif %}
+</div>
+{% endif %}
+<div class="folio"><span>{{ t.foot_updated }} <b class="tnum">{{ music.updated_at or time_hm }}</b></span><span>{% if music.has_track and not music.idle_wall %}APPLE MUSIC{% else %}{{ t.music_snapshot }}{% endif %}</span><span>{{ t.music_page }} · {{ page_no }}/{{ page_total }}</span></div>
+{% if target=='android' and music.has_track and not music.idle_wall %}
+<script>
+(function(){
+  var playing = {{ 'true' if music.state == 'playing' else 'false' }};
+  var duration = {{ music.duration or 0 }};
+  var position = {{ music.position or 0 }};
+  var sampledAt = {{ music.sampled_at or 0 }};
+  var initialDelta = sampledAt > 0 ? (Date.now() / 1000 - sampledAt) : 0;
+  if (!playing || Math.abs(initialDelta) > 300) initialDelta = 0;
+  var startedAt = Date.now() / 1000 - position - initialDelta;
+  var posEl = document.querySelector("[data-music-position]");
+  var barEl = document.querySelector("[data-music-bar]");
+  function two(n){ return n < 10 ? "0" + n : "" + n; }
+  function fmt(sec){
+    sec = Math.max(0, Math.floor(sec || 0));
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    var s = sec % 60;
+    if (h) return h + ":" + two(m) + ":" + two(s);
+    return m + ":" + two(s);
+  }
+  function tick(){
+    var pos = playing ? Date.now() / 1000 - startedAt : position;
+    if (duration > 0) pos = Math.min(duration, pos);
+    var text = fmt(pos);
+    if (posEl) posEl.textContent = text;
+    if (barEl && duration > 0) barEl.style.width = Math.max(0, Math.min(100, pos / duration * 100)) + "%";
+  }
+  tick();
+  if (playing) setInterval(tick, 1000);
+})();
+</script>
+{% endif %}
+</body></html>

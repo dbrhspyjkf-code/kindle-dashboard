@@ -31,8 +31,6 @@
   .badge.on{background:#dcfce7;color:#15803d;}
   .machine{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;background:#fafaf9;}
   .machine .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
-  .machine .ssh{display:none;}
-  .machine.mode-ssh .ssh{display:block;}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .chip{font-size:12px;border:1px solid var(--line);border-radius:20px;padding:3px 10px;cursor:pointer;user-select:none;background:#fff;}
   .chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
@@ -61,7 +59,7 @@
 </header>
 <main>
   <div id="forms">
-    <div class="secnote" id="hdr-secnote">🔒 你填的天气 Key / HA 令牌 / SSH 账号<b>只存本地</b>(config.yaml),不会上传任何服务器。</div>
+    <div class="secnote" id="hdr-secnote">🔒 你填的天气 Key / HA 令牌<b>只存本地</b>(config.yaml),不会上传任何服务器。</div>
     <div class="errbox" id="errbox"></div>
     <div id="form-body"></div>
   </div>
@@ -80,6 +78,7 @@
   </div>
 </main>
 
+<script src="/qrcode.js"></script>
 <script>
 // 访问令牌:从 URL ?token= 读(存 sessionStorage),所有 /api 请求自动带 X-Access-Token 头。
 const KD_TOKEN = new URLSearchParams(location.search).get('token') || sessionStorage.getItem('kd_token') || '';
@@ -95,11 +94,11 @@ const MASK="••••••";
 // 静态 UI 文案双语字典。zh 值与改动前的中文字面完全一致(回归底线);schema 来的 label/help 已由后端按语言下发,不在此翻译。
 const I18N={
   zh:{
-    sec_note:'设置', save:'保存', secnote:'🔒 你填的天气 Key / HA 令牌 / SSH 账号<b>只存本地</b>(config.yaml),不会上传任何服务器。',
+    sec_note:'设置', save:'保存', secnote:'🔒 你填的天气 Key / HA 令牌<b>只存本地</b>(config.yaml),不会上传任何服务器。',
     preview:'实时预览', preview_help:'所见即所得 —— 切风格立即变;改配置点「保存」后刷新。',
     prev_style:'风格', refresh:'刷新', preview_alt:'预览',
     need_token:'🔒 需要访问令牌。请用安装时打印的 <code>http://&lt;IP&gt;:端口/setup?token=...</code> 链接打开本页(或点 Mac 菜单栏「打开设置页」)。',
-    ph_comma:'逗号分隔', ph_saved:'已保存,留空不改',
+    ph_comma:'逗号分隔', ph_saved:'已保存,留空不改', ml_add:'+ 添加一项', ml_del:'删除该项',
     empty_pages:'留空=按已配置数据源自动启用', empty_styles:'不选=所有可用风格',
     field_total:'总容量',
     selected_n:n=>'已选择 '+n+' 项',
@@ -134,6 +133,10 @@ const I18N={
     qt_tip_on:'<b>AI 额度监控</b> 已启用。在其他 Mac 上也装:',
     qt_tip_uninstall:'卸载:',
     qt_foot:'仅 macOS。Claude 走官方 statusLine(稳),Codex 走 launchd 定时器。',
+    mus_tip_off:'<b>Apple Music 当前播放</b>—— 在播放音乐的 Mac 上执行(首次会弹 macOS「允许控制 Music」授权):',
+    mus_tip_on:'<b>Apple Music 当前播放</b> 已启用。在其他 Mac 上也装:',
+    mus_tip_uninstall:'卸载:',
+    mus_foot:'仅 macOS。脚本装到 <code>~/.kindle-dashboard/</code>,只在封面变化时上传封面。',
     // city
     city_ph:'输入城市名搜索,如 上海 / 朝阳', city_search:'搜索',
     city_current:'当前:', city_unselected:'(未选择)',
@@ -149,12 +152,11 @@ const I18N={
     push_nix_label:'<b>Linux / NAS / Mac</b>(终端):', push_win_label:'<b>Windows</b>(PowerShell):',
     push_uninstall:'卸载(在那台机器上直接复制运行,无需改任何东西):',
     dev_name:'名称', dev_mode:'采集方式', dev_mode_local:'本机直读',
-    dev_mode_push:'推(装 agent)', dev_mode_ssh:'拉(SSH)',
+    dev_mode_push:'推(装 agent)',
     dev_platform:'系统', dev_id:'标识(push 关联)', dev_id_ph:'留空=用名称',
-    dev_host:'地址', dev_ssh_port:'SSH 端口', dev_ssh_user:'SSH 用户', dev_ssh_pw:'SSH 密码',
     dev_show_items:'显示项(不勾任何项=全显示;勾选后只显示勾选项)', dev_delete:'删除',
     // ha
-    ha_add:'+ 添加实体', ha_all_types:'全部类型',
+    ha_add:'+ 添加实体', ha_all_types:'全部类型', ha_move_up:'上移', ha_move_down:'下移',
     ha_q_ph:'搜实体名,如 客厅 / 温度', ha_search:'搜索',
     ha_current:'当前:', ha_read_fail:'读取失败', ha_no_match:'无匹配实体',
     ha_truncated:'结果较多,只显示前 50 条,请细化关键词',
@@ -165,11 +167,11 @@ const I18N={
     enabled:'已启用', disabled:'未启用',
   },
   en:{
-    sec_note:'Settings', save:'Save', secnote:'🔒 Your weather key / HA token / SSH credentials are <b>stored locally only</b> (config.yaml) and never uploaded to any server.',
+    sec_note:'Settings', save:'Save', secnote:'🔒 Your weather key / HA token are <b>stored locally only</b> (config.yaml) and never uploaded to any server.',
     preview:'Live preview', preview_help:'What you see is what you get — switch styles instantly; after changing config, click Save then refresh.',
     prev_style:'Style', refresh:'Refresh', preview_alt:'Preview',
     need_token:'🔒 Access token required. Open this page via the <code>http://&lt;IP&gt;:port/setup?token=...</code> link printed during install (or click "Open settings" in the Mac menu bar).',
-    ph_comma:'comma separated', ph_saved:'saved, leave blank to keep',
+    ph_comma:'comma separated', ph_saved:'saved, leave blank to keep', ml_add:'+ Add item', ml_del:'Remove',
     empty_pages:'Empty = auto-enable by configured data sources', empty_styles:'None selected = all available styles',
     field_total:'Total',
     selected_n:n=>n+' selected',
@@ -199,6 +201,10 @@ const I18N={
     qt_tip_on:'<b>AI Quota Monitor</b> enabled. Install on another Mac too:',
     qt_tip_uninstall:'Uninstall:',
     qt_foot:'macOS only. Claude via official statusLine (stable), Codex via launchd timer.',
+    mus_tip_off:'<b>Apple Music Now Playing</b> — run on the Mac that plays music (first run may ask macOS permission to control Music):',
+    mus_tip_on:'<b>Apple Music Now Playing</b> enabled. Install on another Mac too:',
+    mus_tip_uninstall:'Uninstall:',
+    mus_foot:'macOS only. Scripts installed to <code>~/.kindle-dashboard/</code>; artwork uploads only when the cover changes.',
     city_ph:'Search a city name, e.g. Shanghai / Chaoyang', city_search:'Search',
     city_current:'Current: ', city_unselected:'(none)',
     city_adv:'Advanced: enter LocationID manually', city_code_ph:'e.g. 101010100', city_searching:'Searching…',
@@ -212,11 +218,10 @@ const I18N={
     push_nix_label:'<b>Linux / NAS / Mac</b> (terminal):', push_win_label:'<b>Windows</b> (PowerShell):',
     push_uninstall:'Uninstall (copy & run on that machine, no edits needed):',
     dev_name:'Name', dev_mode:'Collection mode', dev_mode_local:'Local read',
-    dev_mode_push:'Push (install agent)', dev_mode_ssh:'Pull (SSH)',
+    dev_mode_push:'Push (install agent)',
     dev_platform:'OS', dev_id:'ID (push linkage)', dev_id_ph:'blank = use name',
-    dev_host:'Host', dev_ssh_port:'SSH port', dev_ssh_user:'SSH user', dev_ssh_pw:'SSH password',
     dev_show_items:'Display items (none checked = show all; otherwise show only checked)', dev_delete:'Delete',
-    ha_add:'+ Add entity', ha_all_types:'All types',
+    ha_add:'+ Add entity', ha_all_types:'All types', ha_move_up:'Move up', ha_move_down:'Move down',
     ha_q_ph:'Search entity name, e.g. living room / temperature', ha_search:'Search',
     ha_current:'Current: ', ha_read_fail:'Read failed', ha_no_match:'No matching entity',
     ha_truncated:'Many results; showing the first 50, please refine your keywords',
@@ -229,8 +234,8 @@ const I18N={
 const t=k=>(I18N[LANG]||I18N.zh)[k] ?? (I18N.zh[k] ?? k);
 
 const PAGE_LABELS_MAP={
-  zh:{home:'首页',ai:'AI 用量',device:'设备监控',ha:'智能家居',printer:'3D 打印机'},
-  en:{home:'Home',ai:'AI Usage',device:'Devices',ha:'Smart Home',printer:'3D Printer'}
+  zh:{home:'首页',ai:'AI 用量',news:'资讯',music:'音乐',download:'下载',device:'设备监控',ha:'智能家居',printer:'3D 打印机'},
+  en:{home:'Home',ai:'AI Usage',news:'News',music:'Music',download:'Downloads',device:'Devices',ha:'Smart Home',printer:'3D Printer'}
 };
 const STYLE_LABELS_MAP={
   zh:{style_a:'经典仪表盘',bento:'卡片分区',blueprint:'蓝图线框',gauge:'仪表盘',minimal:'极简',newspaper:'报纸',terminal:'终端'},
@@ -311,7 +316,8 @@ function renderForm(){
     if(sec.key==='reminders') c.appendChild(renderReminderCmd());
     if(sec.key==='mstodo') c.appendChild(renderMstodo());
     if(sec.key==='ai_usage'){ c.appendChild(renderCcusagePushCmd()); c.appendChild(renderQuotaPushCmd()); }
-    if(sec.key==='server') c.appendChild(kindleFlashBox());
+    if(sec.key==='music') c.appendChild(renderMusicPushCmd());
+    if(sec.key==='server'){ c.appendChild(kindleFlashBox()); c.appendChild(renderAppQR()); }
     root.appendChild(c);
   }
   wireKindleModel();
@@ -344,9 +350,10 @@ function renderField(sk,f){
   const help=f.help?`<div class="fhelp">${f.help}</div>`:'';
   if(f.type==='city'){ return cityField(sk,f,v,help); }
   if(f.type==='printer'){ return printerField(sk,f,v,help); }
-  if(sk==='display'&&f.key==='pages'){ return choiceListField(sk,f,v,help,PAGES,pageLabel,t('empty_pages')); }
+  if(sk==='display'&&f.key==='pages'){ return pageOrderField(sk,f,v,help); }
   if(sk==='display'&&f.key==='style'){ return styleField(sk,f,v,help); }
   if(sk==='display'&&f.key==='style_rotation'){ return choiceListField(sk,f,v,help,STYLES,styleLabel,t('empty_styles')); }
+  if(f.type==='module_list'){ return moduleListField(sk,f,v,help); }
   if(f.type==='bool'){
     d.className='field inline';
     d.innerHTML=`<input type="checkbox" id="${id}" ${v?'checked':''}><label for="${id}">${f.label}</label>`+help;
@@ -363,6 +370,70 @@ function renderField(sk,f){
     d.innerHTML=`<label>${f.label}</label><input type="text" id="${id}" value="${h(v??'')}">`+help;
   }
   return d;
+}
+
+// 通用 module_list 编辑器(下载器 clients / 资讯 feeds 等;devices/ha_page 用各自专属编辑器,不走这里)。
+// 每项一张卡片,内联渲染 item_fields(enum→下拉、bool→开关、secret→密码…);可添加/删除。
+function moduleListItemControl(itf,val){
+  const cls=`mf-${h(itf.key)}`;
+  const lab=`<label style="font-size:12px;color:var(--ink2);margin-bottom:2px;display:block;">${itf.label}${itf.required?' *':''}</label>`;
+  const fhelp=itf.help?`<div class="fhelp">${itf.help}</div>`:'';
+  if(itf.hidden){ return `<input type="hidden" class="${cls}" value="${h(val??itf.default??'')}">`; }
+  let ctrl;
+  if(itf.type==='enum'){
+    const opts=(itf.options||[]).map(o=>`<option value="${h(o[0])}" ${(val??itf.default)===o[0]?'selected':''}>${h(o[1])}</option>`).join('');
+    ctrl=`<select class="${cls}">${opts}</select>`;
+  }else if(itf.type==='bool'){
+    ctrl=`<input type="checkbox" class="${cls}" ${val?'checked':''}>`;
+  }else if(itf.type==='int'||itf.type==='float'){
+    ctrl=`<input type="number" class="${cls}" value="${h(val??itf.default??'')}" step="${itf.type==='float'?'0.1':'1'}">`;
+  }else if(itf.secret){
+    ctrl=`<input type="password" class="${cls}" value="${val===MASK?MASK:''}" placeholder="${val===MASK?h(t('ph_saved')):''}">`;
+  }else{
+    ctrl=`<input type="text" class="${cls}" value="${h(val??'')}">`;
+  }
+  return `<div class="mfield" style="margin-bottom:8px;">${itf.type==='bool'?'':lab}${itf.type==='bool'?`<label class="inline" style="display:flex;align-items:center;gap:7px;">${ctrl}<span>${itf.label}</span></label>`:ctrl}${fhelp}</div>`;
+}
+function moduleListField(sk,f,v,help){
+  const d=document.createElement('div'); d.className='field';
+  d.innerHTML=`<label>${f.label}</label>`+help;
+  const list=document.createElement('div'); list.className='mlist'; list.dataset.sk=sk; list.dataset.key=f.key;
+  const itf=f.item_fields||[];
+  function addItem(item){
+    const card=document.createElement('div'); card.className='mitem';
+    card.style.cssText='border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fafaf9;';
+    card.innerHTML=itf.map(x=>moduleListItemControl(x, item?item[x.key]:undefined)).join('')
+      +`<button type="button" class="mitem-del" style="font-size:13px;color:var(--err);padding:3px 10px;">${t('ml_del')}</button>`;
+    card.querySelector('.mitem-del').onclick=()=>card.remove();
+    list.appendChild(card);
+  }
+  (Array.isArray(v)?v:[]).forEach(addItem);
+  d.appendChild(list);
+  const add=document.createElement('button'); add.type='button'; add.textContent=t('ml_add');
+  add.style.cssText='font-size:13px;padding:6px 12px;';
+  add.onclick=()=>addItem(null);
+  d.appendChild(add);
+  return d;
+}
+function collectModuleList(sk,f){
+  const list=document.querySelector(`.mlist[data-sk="${sk}"][data-key="${f.key}"]`);
+  if(!list) return ((CONFIG[sk]||{})[f.key])||[];   // 没渲染(理论不会)→ 保留原值,别清空
+  const itf=f.item_fields||[]; const rows=[];
+  list.querySelectorAll('.mitem').forEach(card=>{
+    const obj={};
+    for(const x of itf){
+      const el=card.querySelector(`.mf-${CSS.escape(x.key)}`); if(!el) continue;
+      if(x.type==='bool') obj[x.key]=el.checked;
+      else if(x.type==='int') obj[x.key]=parseInt(el.value||'0',10);
+      else if(x.type==='float') obj[x.key]=parseFloat(el.value||'0');
+      else if(x.secret){ if(el.value&&el.value!==MASK) obj[x.key]=el.value; }   // 留空/掩码=不改,后端按名回填
+      else obj[x.key]=el.value;
+    }
+    const keyf=itf[0];   // 第一个必填字段(如 name)空 → 整项跳过
+    if(keyf && !String(obj[keyf.key]??'').trim()) return;
+    rows.push(obj);
+  });
+  return rows;
 }
 
 function styleField(sk,f,v,help){
@@ -387,6 +458,32 @@ function choiceListField(sk,f,v,help,choices,labelFn,emptyText){
     note.textContent=vals.length?t('selected_n')(vals.length):emptyText;
   }
   d.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ c.classList.toggle('on'); sync(); });
+  return d;
+}
+
+// 页面顺序:↑/↓ 调整看板翻页顺序(只排序,不隐藏)。列出全部页,已存顺序在前、其余补后;
+// 配了数据源的页按此顺序显示,没配的后端自动跳过(见 schema.active_pages)。写隐藏 input,保存按 str_list 收。
+function pageOrderField(sk,f,v,help){
+  const d=document.createElement('div'); d.className='field';
+  const valid=PAGES.slice();
+  const saved=(Array.isArray(v)?v:[]).filter(k=>valid.includes(k));
+  const ordered=saved.concat(valid.filter(k=>!saved.includes(k)));
+  const rowStyle="display:flex;justify-content:space-between;align-items:center;padding:7px 11px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fafaf9;";
+  const btn="font-size:14px;padding:2px 10px;line-height:1.2;";
+  const rows=ordered.map(k=>`<div class="porow" data-v="${h(k)}" style="${rowStyle}">
+      <span style="font-weight:600;">${h(pageLabel(k))}</span>
+      <span><button type="button" class="pup" title="${h(t('ha_move_up'))}" style="${btn}">↑</button>
+        <button type="button" class="pdn" title="${h(t('ha_move_down'))}" style="${btn}">↓</button></span>
+    </div>`).join('');
+  d.innerHTML=`<label>${f.label}</label><input type="hidden" id="f-${sk}-${f.key}" value="${h(ordered.join(', '))}">
+    <div class="porder">${rows}</div>`+help;
+  const hid=d.querySelector(`#f-${sk}-${f.key}`);
+  const list=d.querySelector('.porder');
+  function sync(){ hid.value=[...list.querySelectorAll('.porow')].map(r=>r.dataset.v).join(', '); }
+  list.querySelectorAll('.porow').forEach(row=>{
+    row.querySelector('.pup').onclick=()=>{ const p=row.previousElementSibling; if(p){ list.insertBefore(row,p); sync(); } };
+    row.querySelector('.pdn').onclick=()=>{ const n=row.nextElementSibling; if(n){ list.insertBefore(n,row); sync(); } };
+  });
   return d;
 }
 
@@ -537,6 +634,14 @@ function renderQuotaPushCmd(){
     installCmd:`curl -fsSL ${u}/agent/install_quota.sh | sh -s -- ${u}`,
     uninstallCmd:`curl -fsSL ${u}/agent/install_quota.sh | sh -s -- uninstall`,
     enabled:(CONFIG.ai_usage||{}).enabled});
+}
+function renderMusicPushCmd(){
+  const u=_pushUrl();
+  const interval=Math.max(2, parseInt((CONFIG.music||{}).interval||5, 10) || 5);
+  return macPushCmdBox({tipOff:'mus_tip_off', tipOn:'mus_tip_on', tipUninstall:'mus_tip_uninstall', foot:'mus_foot',
+    installCmd:`curl -fsSL ${u}/agent/install_music.sh | sh -s -- ${u} ${interval}`,
+    uninstallCmd:`curl -fsSL ${u}/agent/install_music.sh | sh -s -- uninstall`,
+    enabled:(CONFIG.music||{}).enabled});
 }
 
 // 城市选择器:搜城市名 → GeoAPI 候选 → 选中写编码+城市名;折叠「高级」可手填 LocationID。
@@ -693,6 +798,48 @@ function kindleFlashBox(){
   setTimeout(updateKindleCmds,0);
   return d;
 }
+
+// 安卓 App 配置二维码:编码 {url, token},App 扫码免手敲 IP/令牌。二维码用本地内联库离线生成。
+function buildAppQR(base){
+  const box=document.getElementById('app-qr'); if(!box) return;
+  const link=document.getElementById('app-link');
+  const appUrl=base+'/app'+(KD_TOKEN?('?token='+encodeURIComponent(KD_TOKEN)):'');
+  if(link){ link.value=appUrl; }
+  const openBtn=document.getElementById('app-open'); if(openBtn){ openBtn.href=appUrl; }
+  const payload=JSON.stringify({url:base, token:KD_TOKEN});
+  try{
+    const q=qrcode(0,'M'); q.addData(payload); q.make();
+    box.innerHTML=q.createSvgTag(5,8);
+    const svg=box.querySelector('svg'); if(svg){ svg.style.width='200px'; svg.style.height='200px'; svg.removeAttribute('width'); svg.removeAttribute('height'); }
+  }catch(e){ box.innerHTML='<div class="fhelp" style="color:#b54;">'+(LANG==='en'?'QR generation failed':'二维码生成失败')+': '+h(String(e))+'</div>'; }
+}
+function renderAppQR(){
+  const en=LANG==='en';
+  const origin=window.location.origin;
+  const recommended=normalizeBaseUrl((SERVER_URL&&SERVER_URL.recommended)||origin);
+  const urls=[]; for(const u of [recommended, ...((SERVER_URL&&SERVER_URL.candidates)||[])]){ const x=normalizeBaseUrl(u); if(x&&!urls.includes(x)) urls.push(x); }
+  const choices=urls.length>1
+    ? `<select id="app-url-sel" onchange="buildAppQR(this.value)" style="width:100%;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fafaf9;">${urls.map(u=>`<option value="${h(u)}"${u===recommended?' selected':''}>${h(u)}</option>`).join('')}</select>`
+    : '';
+  const copy=en?'Copy':'复制';
+  const d=document.createElement('div');
+  d.style.cssText='margin-top:14px;border-top:1px dashed var(--line);padding-top:12px;';
+  d.innerHTML=`<div class="fhelp" style="margin-bottom:4px;"><b>📱 ${en?'Android App (touch + color + control)':'安卓 App 版(触控 + 彩色 + 设备控制)'}</b></div>
+    <div class="fhelp">${en
+      ?'Turn an old phone/tablet (Android 5+) into a color, touchable wall dashboard that can also control your devices. Install the APK (see docs/android-app.md), open it, and scan this QR to configure server + token automatically.'
+      :'把旧手机/平板(安卓 5+)变成彩色可触控的壁挂看板,还能点着操作家里的设备。装好 APK(见 docs/android-app.md),打开 App 扫这个二维码,自动填好服务器地址和令牌。'}</div>
+    ${!KD_TOKEN?`<div class="fhelp" style="margin-top:6px;color:#b07d2b;">${en?'⚠ No access token set — anyone on the LAN can reach the dashboard. Set one in the field above and save.':'⚠ 还没设访问令牌——同一局域网的人都能访问看板。建议在上方设一个并保存。'}</div>`:''}
+    ${choices}
+    <div style="display:flex;justify-content:center;margin:12px 0;"><div id="app-qr" style="background:#fff;padding:6px;border:1px solid var(--line);border-radius:8px;line-height:0;"></div></div>
+    <div class="fhelp">${en?'No App? Open the live dashboard in any browser — click the ⛶ button there to go fullscreen:':'不装 App?在任意浏览器里直接打开活看板 —— 进去点 ⛶ 按钮即可全屏:'}</div>
+    <a id="app-open" href="#" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin-top:8px;padding:11px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;">🖥️ ${en?'Open dashboard in browser':'在浏览器全屏看板'}</a>
+    <div style="display:flex;gap:6px;align-items:stretch;margin-top:6px;">
+      <input type="text" readonly id="app-link" value="" style="flex:1;font:12px monospace;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fafaf9;">
+      <button type="button" onclick="copyCmd('app-link', event)" style="white-space:nowrap;">${copy}</button></div>
+    <div class="fhelp" style="margin-top:6px;">${en?'Old Kindle browser too old for this? Use the static fallback page (auto-refreshing image):':'Kindle 自带浏览器太老打不开?用静态降级页(自动刷新的整图):'} <code>/web-simple?token=…</code></div>`;
+  setTimeout(()=>buildAppQR((document.getElementById('app-url-sel')||{}).value||recommended),0);
+  return d;
+}
 function pushAgentBox(){
   const origin=window.location.origin;
   const recommended=normalizeBaseUrl((SERVER_URL&&SERVER_URL.recommended)||origin);
@@ -768,25 +915,14 @@ function machineCard(m,idx){
   card.innerHTML=`
     <div class="row">
       <div class="field"><label>${h(t('dev_name'))}</label><input type="text" class="m-name" value="${h(m.name||'')}"></div>
-      <div class="field"><label>${h(t('dev_mode'))}</label><select class="m-mode" onchange="this.closest('.machine').className='machine mode-'+this.value">
+      <div class="field"><label>${h(t('dev_mode'))}</label><select class="m-mode">
         <option value="local" ${m.mode==='local'?'selected':''}>${h(t('dev_mode_local'))}</option>
-        <option value="push" ${m.mode==='push'?'selected':''}>${h(t('dev_mode_push'))}</option>
-        <option value="ssh" ${m.mode==='ssh'?'selected':''}>${h(t('dev_mode_ssh'))}</option></select></div>
+        <option value="push" ${m.mode==='push'?'selected':''}>${h(t('dev_mode_push'))}</option></select></div>
     </div>
     <div class="row">
       <div class="field"><label>${h(t('dev_platform'))}</label><select class="m-platform">
         ${['auto','linux','macos','windows'].map(p=>`<option ${m.platform===p?'selected':''}>${p}</option>`).join('')}</select></div>
       <div class="field"><label>${h(t('dev_id'))}</label><input type="text" class="m-id" value="${h(m.id||'')}" placeholder="${h(t('dev_id_ph'))}"></div>
-    </div>
-    <div class="ssh">
-      <div class="row">
-        <div class="field"><label>${h(t('dev_host'))}</label><input type="text" class="m-host" value="${h(m.host||'')}"></div>
-        <div class="field"><label>${h(t('dev_ssh_port'))}</label><input type="number" class="m-port" value="${m.ssh_port||22}"></div>
-      </div>
-      <div class="row">
-        <div class="field"><label>${h(t('dev_ssh_user'))}</label><input type="text" class="m-user" value="${h(m.ssh_user||'')}"></div>
-        <div class="field"><label>${h(t('dev_ssh_pw'))} 🔑</label><input type="password" class="m-pw" placeholder="${m.ssh_password===MASK?h(t('ph_saved')):''}" value="${m.ssh_password===MASK?MASK:''}"></div>
-      </div>
     </div>
     <label style="font-size:12px;font-weight:600;">${h(t('dev_show_items'))}</label>
     <div class="chips">${chips}</div>
@@ -828,7 +964,10 @@ function entityCard(e, idx){
     <div class="field" style="margin-top:8px;"><label>${h(t('ha_disp_name'))}</label><input type="text" class="he-name" value="${h(e.name||'')}" placeholder="${h(t('ha_name_ph'))}"></div>
     <details style="margin-top:2px;"><summary style="font-size:12px;color:var(--ink3);cursor:pointer;">${h(t('ha_icon_adv'))}</summary>
       <input type="text" class="he-icon" value="${h(e.icon||'')}" placeholder="${h(t('ha_icon_ph'))}" style="margin-top:5px;"></details>
-    <div style="text-align:right;margin-top:8px;"><button onclick="this.closest('.haent').remove()" style="font-size:12px;padding:4px 10px;">${h(t('dev_delete'))}</button></div>`;
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <span><button type="button" class="he-up" title="${h(t('ha_move_up'))}" style="font-size:14px;padding:4px 11px;">↑</button>
+        <button type="button" class="he-down" title="${h(t('ha_move_down'))}" style="font-size:14px;padding:4px 11px;">↓</button></span>
+      <button type="button" class="he-del" style="font-size:12px;padding:4px 10px;">${h(t('dev_delete'))}</button></div>`;
   const q=card.querySelector('.he-q'), go=card.querySelector('.he-go'),
         dom=card.querySelector('.he-domain'), box=card.querySelector('.he-results'),
         hid=card.querySelector('.he-id'), curId=card.querySelector('.he-cur-id'),
@@ -855,6 +994,10 @@ function entityCard(e, idx){
   }
   go.onclick=doSearch;
   q.addEventListener('keydown',ev=>{ if(ev.key==='Enter'){ ev.preventDefault(); doSearch(); } });
+  // 手动排序:↑/↓ 与相邻实体卡互换位置(保存按 DOM 顺序写,故换位即改顺序);删除
+  card.querySelector('.he-up').onclick=()=>{ const p=card.previousElementSibling; if(p&&p.classList.contains('haent')) card.parentNode.insertBefore(card,p); };
+  card.querySelector('.he-down').onclick=()=>{ const n=card.nextElementSibling; if(n&&n.classList.contains('haent')) card.parentNode.insertBefore(n,card); };
+  card.querySelector('.he-del').onclick=()=>card.remove();
   return card;
 }
 
@@ -865,6 +1008,7 @@ function collect(){
     if(sec.key==='devices'||sec.key==='ha_page') continue;
     out[sec.key]={};
     for(const f of sec.fields){
+      if(f.type==='module_list'){ out[sec.key][f.key]=collectModuleList(sec.key,f); continue; }
       const el=document.getElementById(`f-${sec.key}-${f.key}`); if(!el) continue;
       if(f.type==='bool') out[sec.key][f.key]=el.checked;
       else if(f.type==='int') out[sec.key][f.key]=parseInt(el.value||'0',10);
@@ -881,12 +1025,10 @@ function collect(){
     const fields=[...card.querySelectorAll('.chip.on')].map(c=>c.dataset.f);
     const m={
       name:g('.m-name').value, id:g('.m-id').value, mode:g('.m-mode').value,
-      platform:g('.m-platform').value, host:g('.m-host').value,
-      ssh_user:g('.m-user').value, ssh_port:parseInt(g('.m-port').value||'22',10),
+      platform:g('.m-platform').value,
       // 不勾任何项才存空(=全显示);只要勾了,就严格按勾选项显示。
       fields: fields.length===0?[]:fields,
     };
-    const pw=g('.m-pw').value; if(pw&&pw!==MASK) m.ssh_password=pw;
     if(m.name.trim()) out.devices.machines.push(m);
   });
   // 智能家居:每张卡片一个实体(没选 entity_id 的空卡片跳过)

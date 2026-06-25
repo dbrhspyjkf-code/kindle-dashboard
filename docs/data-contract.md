@@ -4,6 +4,8 @@
 >
 > 权威定义在 `server/render/contract.py`(本文是它的人类可读摘要,改契约要两边同步)。
 > 缺数据/未配置时所有字段都有降级占位(数字→`0`,文本→`--`,列表→`[]`),所以模板**永远不会拿到 undefined**,放心用。
+>
+> **安卓 App 版**(触控 + 彩色 + 设备控制)复用同一套契约,只**追加**了几个 App-only 字段(`ha.cards[].entity_id`、`ha.cards[].meta`、`download.torrents[].{id,client}`、`printer.paused`),供 `{% if target=='android' %}` 控件路由到动作接口用;Kindle 出图不读这些字段,**不影响现有风格**。机制见 [android-app.md](android-app.md);HA 页三档点击交互见 [ha-page-interaction-spec.md](ha-page-interaction-spec.md)。
 
 ## 页面 → 数据段
 
@@ -14,6 +16,9 @@
 | `device` | 设备 | `device` | 设备监控 |
 | `ha` | 智能家居 | `ha` | Home Assistant + 选了实体 |
 | `printer` | 打印机 | `printer` | Home Assistant |
+| `news` | 资讯 | `news` | RSS 订阅源(默认预置 AIHOT,无需密钥) |
+| `download` | 下载 | `download` | qBittorrent / Transmission(可多台,合并显示) |
+| `music` | 音乐 | `music` | Mac 上的 Music agent 推送(Apple Music / Music.app) |
 
 ## 顶层字段(所有页可用)
 
@@ -23,9 +28,11 @@
 | `now` | str | `05/27 14:30` | 日期+时间 |
 | `time_hm` | str | `14:30` | 时:分 |
 | `clock` | str | `14:30:05` | 时:分:秒 |
-| `battery.level` | int\|`--` | `87` | Kindle 电量 |
+| `battery.level` | int\|`--` | `87` | 电量。Kindle 出图=Kindle 经 `/api/kindle-status` 上报;安卓 App `/app` 出图=手机经 `?kbatt=` 传来 |
 | `battery.charging` | bool | | 是否充电 |
-| `battery.has` | bool | | 无电池数据时为 false,模板应据此决定渲不渲电池块 |
+| `battery.has` | bool | | 有无电池数据;false 时模板**必须**不渲染电池块(`{% if battery.has %}…`)。**`/app/page` 与 `/app-legacy/page` 永远不是 Kindle 在请求,无 `kbatt` 即 has=False、不显示**,绝不退回显示 Kindle 电量(误导)。普通浏览器开 `/app` 同理不显示 |
+| `page_no` | int | `3` | 当前页在「实际启用页顺序」中的序号(从 1)。渲染入口按 `active_pages` 注入,**反映用户在设置页手动排的页序** |
+| `page_total` | int | `7` | 启用页总数。页脚用 `{{ page_no }} / {{ page_total }}` 显示「当前/总数」,加页/调序自动跟着变(**别再写死 `1/5`**) |
 
 > **i18n(中英双语)**:全局开关 `config.server.language`(zh|en,默认 zh)。
 > - **数据值已按语言产出**(模板直接显示,勿再翻):`home.weekday`(周X/Mon-Sun)、`printer.state_text`/`speed`/`remaining_text`、`ai.*_reset` 倒计时、提醒 `.dt` 标签、设备分区名 `总容量`/`Total`。
@@ -104,17 +111,42 @@
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `name` | str | 显示名(用户覆盖 or HA 友好名) |
-| `kind` | str | `toggle`/`lock`/`cover`/`binary`/`sensor`/`climate`/`media`/`presence`/`text` |
+| `kind` | str | `toggle`/`lock`/`cover`/`binary`/`sensor`/`climate`/`media`/`presence`/`text`/`select`/`number`/`button`/`scene`/`alarm` |
 | `icon` | str | MDI 图标名(`mdi:xxx`);空串=不显图标 |
-| `on` | bool | 激活态强调(开/有人/已锁/播放中…);sensor 恒 `false` |
-| `state_text` | str | 主显文本(toggle/lock/cover/binary/climate/media/presence/text) |
+| `on` | bool | 激活态强调(开/有人/已锁/播放中…);sensor/select/number/button/scene/alarm 恒 `false` |
+| `state_text` | str | 主显文本(除 sensor 外各 kind) |
 | `value` | str | 主显数值(sensor;非 sensor 为空) |
 | `unit` | str | 数值单位(sensor;如 `°C` / `%` / `W`) |
 | `sub` | str | 次要行(climate 目标温度、media 标题…),可空 |
+| `entity_id` | str | HA 实体 id。**仅安卓 App 交互用**(点卡→`/api/action/ha`);Kindle 模板无视 |
+| `meta` | dict | **仅安卓 App 控制面板用**(B 类可控卡才有);Kindle 模板无视,不影响出图。结构见下 |
 
 > 主显规则:`value` 非空 → `value` 大字 + `unit` 小字;否则 `state_text` 大字。`sub` 非空再加一行小字。
 > 遍历范式:`{% for c in ha.cards %} ... {% if c.value %}{{ c.value }}{{ c.unit }}{% else %}{{ c.state_text }}{% endif %} ... {% endfor %}`
 > on/off 在墨水屏上靠「描边 vs 加重描边 + 实心点」区分,不靠颜色。
+
+### `kind` 三档交互(安卓 App / 网页版,定稿见 [ha-page-interaction-spec.md](ha-page-interaction-spec.md))
+
+| 档 | kind | 单击交互 | `meta` |
+|---|---|---|---|
+| A 直发 | `toggle`/`lock`/`scene`/`button` | 单击即下发动作(乐观更新) | 无 |
+| B 弹面板 | `cover`/`climate`/`media`/`select`/`number`/`alarm` | 单击弹底部控制面板 | 见下 |
+| C 只读 | `sensor`/`binary`/`presence`/`text` | 单击弹只读详情 | 无 |
+
+> B/C 卡 android 出口右上角加 `›` 角标(A 类不加);Kindle 出图三档都不渲染角标/控件。
+
+`meta`(B 类卡,App-only)结构:
+
+| kind | `meta` |
+|---|---|
+| `cover` | `{on, position}`(position 可为 `null`) |
+| `climate` | `{on, mode, modes[], current, target}`(modes=合法 HVAC 模式;temp 为数值/`null`) |
+| `media` | `{on, title}` |
+| `select` | `{options[], current}` |
+| `number` | `{min, max, step, unit, value}` |
+| `alarm` | `{state}`(`armed_home`/`armed_away`/`disarmed`…) |
+
+> `meta` 是安卓 App 出口追加的字段名(非 dict 方法名,Jinja 安全)。Kindle 出图链路不读它,逐字节不变。
 
 ## `printer` —— 打印机
 
@@ -123,6 +155,7 @@
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `online` / `printing` | bool | 在线 / 正在打印 |
+| `paused` | bool | 是否暂停中。**已弃用(2026-06-23):打印机控制移除**(HA 拓竹云模式控不了);字段仍产出但无消费方,Kindle 一直无视 |
 | `state_text` | str | `打印中`/`空闲`/`离线`... |
 | `progress` | int | 0-100 |
 | `task` | str | 文件名 |
@@ -137,3 +170,82 @@
 | `name` | str | 打印机名 |
 
 > 当前贴合单台 3D 打印机(拓竹)。P2 会抽象成「任意 HA 实体卡片」以降低品牌绑定,届时契约扩展、本表更新。
+
+## `news` —— 资讯(RSS,默认订 AIHOT)
+
+`news.entries` 是从轮转起始位起取的**一批候选条目**(默认 12,wrapping,顺序排好);页面用共享自适应引擎按容器高度**取前缀**显示(短讯多并、长文缩字铺满)。空列表时该页隐藏。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `entries` | list | 候选批(默认 12 条);模板**遍历**渲染、引擎按高度取前缀。**字段名是 `entries` 不是 `items`**(Jinja `news.items` 会撞 `dict.items()` 方法) |
+| `index` | int | 本批起始条在全部条目中的序号(从 1 起,显示「第 x 起」) |
+| `total` | int | 全部条目数(显示「/N」) |
+| `title` | str | 页面主标题(默认「AI 热点」/「Headlines」,可被 config `news.title` 覆盖) |
+
+`entries[*]` 单条字段(冻结):
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `title` | str | 标题 |
+| `summary` | str | 正文整段(feed 的 `description`,已去 HTML;可长达 ~400 字,模板须能容纳) |
+| `source` | str | 来源名(author 括号内 / feed 名) |
+| `category` | str | 话题(feed 带 `<category>` 才有;AIHOT 无 → 空串,**非空才显示话题 chip,别编造**) |
+| `when` | str | 相对时间 `2小时前`/`2h ago`/`MM.DD`(已按 lang 本地化) |
+| `link` | str | 原文链接(墨水屏不可点,默认不显示) |
+
+> 资讯正文/标题是**外部数据**,什么语言显示什么(中文 feed 仍中文);只有 chrome(页标题/来源/序号/相对时间)走 lang。
+> 轮播在 `build_context` 做(无状态时间分桶选起始位,`server/sources/rss.pick_index`);模板不管轮播,遍历整批 `entries`。
+> **遍历范式(自适应填充)**:容器 `<div class="news-fit" data-news-fit>`,每条 `<div class="nitem" data-news-item>`,正文 `font-size:var(--news-fs)`,`</body>` 前 `{% include 'shared/news_fit.html' %}`。引擎按高度自动决定显示几条/多大字。详见 `docs/news-redesign-spec.md` §6b、样板 `styles/style_a/news.html`(**用 `news.entries` 不要写 `news.items`**)。
+
+## `download` —— 下载看板(qBittorrent + Transmission 合并)
+
+`download.torrents` 是合并+活跃优先+截断后的种子列表;空且 `total==0` 时该页隐藏。顶层全局字段已格式化好,直接显示。
+
+| 字段 | 类型 | 例 | 说明 |
+|---|---|---|---|
+| `ok` | bool | | 是否有下载器连上 |
+| `dl_speed` / `up_speed` | str | `5.2 MB/s` / `0` | 已格式化的总下载/上传速度(全部种子汇总) |
+| `active` / `total` | int | `3` / `18` | 活动数 / 总种子数 |
+| `ratio` | str | `0.13` | 聚合全局分享率(跨所有下载器,累计上传/累计下载) |
+| `uploaded` / `downloaded` | str | `119.7G` / `880.2G` | 累计(已格式化);未知为 `--` |
+| `free` | str | `1.2T` | 剩余空间;**空串=未知,空就别显示**(qB 实测可能返回 -1) |
+| `errors` | list | `["群晖 qB"]` | 连不上的下载器名;**非空=部分离线,角落提示「N 个下载器离线」**(诚实降级) |
+| `torrents` | list | | 单条种子,字段见下(已排序+截断到 `downloaders.rows`) |
+
+`torrents[*]` 单条字段(冻结):
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `name` | str | 种子名(可能很长,模板须截断) |
+| `progress` | int | 0~100 |
+| `dl` / `up` | str | 速度,已格式化 `29 MB/s` / `0` |
+| `ratio` | str | 分享率 `0.43` |
+| `size` | str | `12.3G` |
+| `eta` | str | `12分` / `1时5分` / `—`(已本地化;异常值统一 `—`) |
+| `state` | str | 统一枚举 `downloading`/`seeding`/`paused`/`checking`/`queued`/`stalled`/`error`/`other`——**模板用它选图标/分支** |
+| `state_text` | str | 已本地化状态文字(下载中/做种/暂停…)——**模板直接显示** |
+| `id` | str/int | 种子 id(qB=hash / Transmission=数字)。**仅安卓 App 控制用**(`/api/action/torrent`);Kindle 无视 |
+| `client` | str | 所属下载器名。**仅安卓 App 控制用**(按它路由到对应 adapter);Kindle 无视 |
+
+> 进度条是墨水屏主场:实心/斜纹填充表示进度,**不靠颜色**。下载中显进度+eta,做种显分享率+上传。
+> 种子名是**外部数据**按原文显示(不翻译);只有 chrome(标题/标签/单位/空态)走 lang。
+> 遍历范式:`{% for tr in download.torrents %}`(**字段名 `torrents` 不撞 dict 方法,放心用**)。机制/鉴权见 `docs/download-page-spec.md`。
+
+## `music` —— 音乐播放(Apple Music / Music.app,Mac agent 推送)
+
+`has_track==False` → 空状态「当前无播放」:模板显占位框、**不显假进度条**(对标打印机页「无任务」)。**渲染目标分层**:静态目标(`target=kindle`/`legacy`、`/web-simple`)**不显** progress/position/递增时间,只显「当前是哪首歌」;动态目标(`target=android`)前端据 `position`+`duration`+`sampled_at` 自走进度条。`*_text` 字段全由 `build_context` 按 lang 产出,**模板别写死中文**。
+
+| 字段 | 类型 | 例 | 说明 |
+|---|---|---|---|
+| `available` | bool | | 模块已启用且 agent 有效 |
+| `has_track` | bool | | 有无当前曲目;false=空状态 |
+| `state` / `state_text` | str | `playing` / `播放中` | 枚举 playing/paused/stopped;`_text` 已本地化 |
+| `name` / `artist` / `album` | str | | 歌名 / 艺人 / 专辑(后两者可空) |
+| `duration` / `duration_text` | int / str | `314` / `5:14` | 总时长(秒 / 已格式化);动态目标用秒 |
+| `position` / `position_text` | int / str | `103` / `1:43` | 当前进度(秒 / 已格式化);动态目标用秒 |
+| `progress_pct` / `sampled_at` | int / int | `33` / epoch 秒 | 进度% / 采样时刻(动态目标据此推实时进度) |
+| `shuffle` / `shuffle_text` | bool / str | | 随机;`_text` 已本地化(随机开/关) |
+| `repeat` / `repeat_text` | str / str | `all` / `列表循环` | off/all/one;`_text` 已本地化 |
+| `artwork_url` | str | | 封面 URL;空=显占位框 |
+
+> 完整字段(含 album_artist/composer/genre/year/track_number/loved/play_count 等可选项,及 state_since/paused_for/artwork_wall* 等屏保态字段)见 `server/render/contract.py` 的 `empty_music()`(逐字段注释,为权威定义)。字段名不用 dict 方法名。

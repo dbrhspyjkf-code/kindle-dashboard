@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* news 页:命令行 feed,自适应填充。窗口框 + 标题栏 + 多条 [src]/[t]/> 标题/正文 按容器高度自动铺满
+   (短讯多并、长文缩字,引擎见 shared/news_fit)。等宽字体,层级靠粗细/方括号/虚线,纯灰度。 */
+.news-fit{flex:1;min-height:0;overflow:hidden;--news-fs:15px;display:flex;flex-direction:column;padding:14px;}
+.nitem{padding:10px 0 11px;border-top:1px dashed var(--ink3);flex-shrink:0;}
+.nitem:first-child{border-top:none;padding-top:1px;}
+.nmeta{display:flex;align-items:baseline;gap:11px;font-size:12px;color:var(--ink3);margin-bottom:7px;white-space:nowrap;flex-wrap:wrap;}
+.nmeta .lbl{color:var(--ink4);}
+.nmeta .src{color:var(--ink);font-weight:700;}
+.nmeta .cat{margin-left:auto;border:1.5px solid var(--ink);padding:0 6px;font-weight:700;font-size:11px;color:var(--ink);flex-shrink:0;}
+.nt{font-size:20px;font-weight:700;line-height:1.25;letter-spacing:-0.3px;color:var(--ink);margin-bottom:8px;}
+.nt .pr{color:var(--ink3);}
+.nb{font-size:var(--news-fs);line-height:1.55;color:var(--ink2);}
+.empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:15px;}
+</style></head><body>
+{%- set items = news.entries if news else [] -%}
+<div class="win">
+  <div class="titlebar"><span class="path"><span class="b">kindle://</span>feed --latest</span><span class="clk tnum">{{ now }}</span></div>
+{% if items %}
+  <div class="news-fit" data-news-fit>
+    {% for it in items %}
+    <div class="nitem" data-news-item>
+      <div class="nmeta">
+        {% if it.source %}<span><span class="lbl">[src]</span> <span class="src">{{ it.source }}</span></span>{% endif %}
+        {% if it.when %}<span><span class="lbl">[t]</span> {{ it.when }}</span>{% endif %}
+        {% if it.category %}<span class="cat">{{ it.category }}</span>{% endif %}
+      </div>
+      <div class="nt"><span class="pr">&gt; </span>{{ it.title }}</div>
+      {% if it.summary %}<div class="nb">{{ it.summary }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="news-fit"><div class="empty">{{ t.news_empty }}</div></div>
+{% endif %}
+  <div class="statusbar"><span class="seg"><span class="dim">UPDATED</span> <span class="tnum">{{ time_hm }}</span></span><span class="seg"><span class="dim">ITEM</span> <span class="tnum">{{ news.index }}/{{ news.total }}</span></span><span class="seg"><span class="dim">{% if battery.has %}{% if battery.charging %}CHG{% else %}BAT{% endif %}</span> <span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span class="seg"><span class="dim">PAGE</span> {{ page_no }}/{{ page_total }}</span></div>
+</div>
+{% include 'shared/news_fit.html' %}
+</body></html>

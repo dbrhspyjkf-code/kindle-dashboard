@@ -1,0 +1,36 @@
+{# legacy 下载(浅色 editorial):顶部统计带(float 5 格)+ 种子清单。只读。共享类在外壳。 #}
+{%- set d = download -%}
+<div class="page">
+  <div class="mast clear">
+    <div class="meta">{{ now }}</div>
+    <div class="kicker">{{ t.dl_kicker }}</div>
+    <div class="title">{{ t.dl_title }}</div>
+  </div>
+  <div class="main">
+    <table class="fcol">
+      <tr><td>
+        <div class="dl-band clear">
+          <div class="dl-stat"><div class="box"><div class="k">↓ {{ t.dl_speed_dl }}</div><div class="v tnum">{{ d.dl_speed }}</div></div></div>
+          <div class="dl-stat"><div class="box"><div class="k">↑ {{ t.dl_speed_up }}</div><div class="v tnum">{{ d.up_speed }}</div></div></div>
+          <div class="dl-stat"><div class="box"><div class="k">{{ t.dl_active }}</div><div class="v tnum">{{ d.active }}<span class="u"> / {{ d.total }}</span></div></div></div>
+          <div class="dl-stat"><div class="box"><div class="k">{{ t.dl_up_total }}</div><div class="v tnum">{{ d.uploaded }}</div></div></div>
+          <div class="dl-stat last"><div class="box"><div class="k">{{ t.dl_ratio }}</div><div class="v tnum">{{ d.ratio }}</div></div></div>
+        </div>
+      </td></tr>
+      <tr><td class="fcfill">
+        {% if d.torrents %}
+          {% for tr in d.torrents[:7] %}
+          <div class="tor{% if loop.first %} first{% endif %}{% if tr.state == 'downloading' %} dling{% endif %}">
+            <div class="clear"><span class="st">{{ tr.state_text }}</span><span class="nm ell">{{ tr.name }}</span></div>
+            <div class="pwrap clear"><span class="pct tnum">{{ tr.progress }}%</span><div class="pbar"><i style="width:{{ tr.progress }}%"></i></div></div>
+            <div class="bot tnum"><span>↓ <b>{{ tr.dl }}</b></span><span>↑ <b>{{ tr.up }}</b></span><span>{{ t.dl_ratio }} <b>{{ tr.ratio }}</b></span><span>{{ tr.size }}</span>{% if tr.state == 'downloading' and tr.eta != '—' %}<span>{{ t.dl_eta }} <b>{{ tr.eta }}</b></span>{% endif %}</div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-box"><div class="big">{{ t.dl_empty }}</div></div>
+        {% endif %}
+      </td></tr>
+    </table>
+  </div>
+  <div class="foot clear"><span class="rt">{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%{% endif %}</span><span>{{ t.foot_updated }} {{ time_hm }}{% if d.errors %} · <span class="accent">{{ d.errors|length }} {{ t.dl_offline }}</span>{% endif %}</span></div>
+</div>

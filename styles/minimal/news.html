@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* news 页:瑞士极简,自适应填充。极简页眉 + 多条发丝线分隔的摘要按容器高度自动铺满
+   (短讯多并、长文缩字,引擎见 shared/news_fit)。衬线大标题 + 大留白,层级靠尺寸/留白,纯灰度。 */
+.news-fit{flex:1;min-height:0;overflow:hidden;--news-fs:16px;display:flex;flex-direction:column;}
+.nitem{padding:15px 0 16px;border-top:1px solid var(--line2);flex-shrink:0;}
+.nitem:first-child{border-top:none;padding-top:1px;}
+.nmeta{display:flex;align-items:baseline;gap:12px;font-size:10px;font-weight:600;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--ink3);margin-bottom:11px;white-space:nowrap;}
+.nmeta .src{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;max-width:55%;}
+.nmeta .cat{margin-left:auto;flex-shrink:0;letter-spacing:1px;border-bottom:2px solid var(--ink);color:var(--ink);padding-bottom:1px;}
+.nt{font-family:'Noto Serif CJK SC','Songti SC',serif;font-size:30px;font-weight:600;
+  line-height:1.18;letter-spacing:-1px;color:var(--ink);margin-bottom:13px;}
+.nb{font-size:var(--news-fs);line-height:1.7;color:var(--ink2);font-weight:400;}
+.haempty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.haempty .big{font-size:40px;font-weight:600;color:var(--ink);margin-bottom:10px;letter-spacing:-1px;}
+</style></head><body>
+{%- set items = news.entries if news else [] -%}
+<div class="head"><div class="ttl">{{ news.title }}</div><div class="meta tnum">{{ now }}</div></div>
+{% if items %}
+<div class="news-fit" data-news-fit>
+  {% for it in items %}
+  <div class="nitem" data-news-item>
+    <div class="nmeta">
+      {% if it.source %}<span class="src">{{ it.source }}</span>{% endif %}
+      {% if it.when %}<span>{{ it.when }}</span>{% endif %}
+      {% if it.category %}<span class="cat">{{ it.category }}</span>{% endif %}
+    </div>
+    <div class="nt">{{ it.title }}</div>
+    {% if it.summary %}<div class="nb">{{ it.summary }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="haempty"><div class="big">{{ t.news_empty_big }}</div><div>{{ t.news_empty_hint }}</div></div>
+{% endif %}
+<div class="foot"><span>{{ t.foot_updated }} <span class="tnum">{{ time_hm }}</span></span><span>{% if news.total %}{{ news.index }} / {{ news.total }} {{ t.news_unit }}{% endif %}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span>{{ "%02d"|format(page_no) }} / {{ "%02d"|format(page_total) }}</span></div>
+{% include 'shared/news_fit.html' %}
+</body></html>

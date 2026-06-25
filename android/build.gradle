@@ -1,0 +1,4 @@
+// 根构建脚本。AGP 8.1 + Gradle 8.2(见 gradle/wrapper/gradle-wrapper.properties)。
+plugins {
+    id 'com.android.application' version '8.1.4' apply false
+}

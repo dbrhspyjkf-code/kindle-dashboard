@@ -18,6 +18,9 @@ import httpx
 # ============================================================
 TOGGLE_DOMAINS = {"light", "switch", "fan", "input_boolean",
                   "automation", "script", "siren", "humidifier"}
+# 合法 HVAC 模式(给空调面板的模式按钮过滤;与 actions.HVAC_MODES 同口径,
+# 此处单列一份避免 homeassistant↔actions 循环导入)。
+_HVAC_VALID = ("off", "heat", "cool", "heat_cool", "auto", "dry", "fan_only")
 HVAC_CN = {"heat": "制热", "cool": "制冷", "heat_cool": "自动", "auto": "自动",
            "dry": "除湿", "fan_only": "送风", "off": "关"}
 MEDIA_CN = {"playing": "播放中", "paused": "暂停", "idle": "空闲",
@@ -67,6 +70,13 @@ def _binary_text(dc, on):
     return "是" if on else "否"
 
 
+def _num_or_none(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _build_card(by_id, ent):
     """把一个配置项 {entity_id,name,icon} + states 映射成一张契约卡片(contract.empty_ha 的卡片结构)。"""
     eid = (ent.get("entity_id") or "").strip()
@@ -77,7 +87,7 @@ def _build_card(by_id, ent):
     if s is None:                       # 实体被删/写错 → 兜底文本卡,不报错(spec §5 降级)
         return {"name": name_override or eid or "未知实体", "kind": "text",
                 "icon": icon_override, "on": False, "state_text": "未知实体",
-                "value": "", "unit": "", "sub": ""}
+                "value": "", "unit": "", "sub": "", "entity_id": eid}
 
     attrs = s.get("attributes") or {}
     state = (s.get("state") or "").strip()
@@ -88,7 +98,8 @@ def _build_card(by_id, ent):
     bad = state.lower() in ("unavailable", "unknown", "")   # 离线/无数据 → 主显 --
 
     card = {"name": name, "kind": "text", "icon": icon, "on": False,
-            "state_text": "", "value": "", "unit": "", "sub": ""}
+            "state_text": "", "value": "", "unit": "", "sub": "",
+            "entity_id": eid}     # 仅 App 交互用(点卡→/api/action/ha);Kindle 模板无视
 
     if domain in TOGGLE_DOMAINS:
         card["kind"] = "toggle"
@@ -102,15 +113,18 @@ def _build_card(by_id, ent):
         card["kind"] = "cover"
         card["on"] = state == "open"
         pos = attrs.get("current_position")
+        pos_int = None
         if bad:
             card["state_text"] = "--"
         elif pos is not None and str(pos) != "":
             try:
-                card["state_text"] = f"{int(float(pos))}%"
+                pos_int = int(float(pos))
+                card["state_text"] = f"{pos_int}%"
             except (TypeError, ValueError):
                 card["state_text"] = "开" if state == "open" else "关"
         else:
             card["state_text"] = "开" if state == "open" else "关"
+        card["meta"] = {"on": card["on"], "position": pos_int}   # 仅 App 面板用;Kindle 无视
     elif domain == "binary_sensor":
         card["kind"] = "binary"
         card["on"] = state == "on"
@@ -132,16 +146,44 @@ def _build_card(by_id, ent):
         card["value"] = "" if (ct is None or bad) else str(ct)
         tgt = attrs.get("temperature")
         card["sub"] = "" if tgt is None else f"目标 {tgt}°"
+        modes = [m for m in (attrs.get("hvac_modes") or []) if m in _HVAC_VALID]
+        card["meta"] = {"on": card["on"], "mode": state, "modes": modes,
+                        "current": _num_or_none(ct), "target": _num_or_none(tgt)}
     elif domain == "media_player":
         card["kind"] = "media"
         card["on"] = state == "playing"
         card["state_text"] = "--" if bad else MEDIA_CN.get(state, state or "空闲")
         title = attrs.get("media_title") or ""
         card["sub"] = (title[:17] + "…") if len(title) > 18 else title
+        card["meta"] = {"on": card["on"], "title": title}
     elif domain in ("person", "device_tracker"):
         card["kind"] = "presence"
         card["on"] = state == "home"
         card["state_text"] = "--" if bad else ("在家" if state == "home" else "外出")
+    # ↓ 新增可控 kind(spec docs/ha-page-interaction-spec.md §2)。Kindle 字段(on/value/
+    #   unit/sub 留默认、state_text 同旧 text 兜底)保持与改动前逐字节一致;只追加 App 用 meta。
+    elif domain in ("select", "input_select"):
+        card["kind"] = "select"
+        card["state_text"] = "--" if bad else (state or "--")
+        opts = [str(o) for o in (attrs.get("options") or [])]
+        card["meta"] = {"options": opts, "current": state}
+    elif domain in ("number", "input_number"):
+        card["kind"] = "number"
+        card["state_text"] = "--" if bad else (state or "--")
+        card["meta"] = {"min": attrs.get("min"), "max": attrs.get("max"),
+                        "step": attrs.get("step"),
+                        "unit": attrs.get("unit_of_measurement") or "",
+                        "value": _num_or_none(state)}
+    elif domain in ("button", "input_button"):
+        card["kind"] = "button"            # 一次性动作,A 类单击直发,无面板/meta
+        card["state_text"] = "--" if bad else (state or "--")
+    elif domain == "scene":
+        card["kind"] = "scene"             # 一次性动作,A 类单击直发
+        card["state_text"] = "--" if bad else (state or "--")
+    elif domain == "alarm_control_panel":
+        card["kind"] = "alarm"
+        card["state_text"] = "--" if bad else (state or "--")
+        card["meta"] = {"state": state}    # 面板按当前布防态给布防/撤防按钮
     else:                               # 兜底:任意 domain 都有显示,不报错
         card["kind"] = "text"
         card["state_text"] = "--" if bad else (state or "--")

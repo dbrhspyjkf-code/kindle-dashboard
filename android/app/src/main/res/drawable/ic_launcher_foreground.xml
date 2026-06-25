@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标前景层:居中的「看板磁贴」字形,落安全区(108 视口中心 ~ [30,78])。
+     白卡 + 蓝色内容条(2 蓝底白卡方案):叠在品牌蓝背景上=蓝白一体,白卡反白、内容条与底同蓝呈镂空感。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 白色看板卡 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,34 h42 a4,4 0 0 1 4,4 v32 a4,4 0 0 1 -4,4 h-42 a4,4 0 0 1 -4,-4 v-32 a4,4 0 0 1 4,-4 z" />
+    <!-- 标题块 -->
+    <path android:fillColor="#2F6FED" android:pathData="M38,40h22v7h-22z" />
+    <!-- 右上两个小块 -->
+    <path android:fillColor="#2F6FED" android:pathData="M64,40h10v3h-10z" />
+    <path android:fillColor="#2F6FED" android:pathData="M64,45h10v2h-10z" />
+    <!-- 宽分隔条 -->
+    <path android:fillColor="#2F6FED" android:pathData="M38,52h36v3h-36z" />
+    <!-- 底部两块 -->
+    <path android:fillColor="#2F6FED" android:pathData="M38,59h20v9h-20z" />
+    <path android:fillColor="#2F6FED" android:pathData="M62,59h12v9h-12z" />
+</vector>

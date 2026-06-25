@@ -4,7 +4,12 @@
 
 ## 一、Mac 服务
 
+**推荐:图形安装(.dmg)。** 到 [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) 下载 `墨水桌面看板-x.x.dmg` → 拖进「应用程序」→ 双击。首启自动建环境(复制源码到 `~/Library/Application Support/墨水桌面看板/repo` 建 venv)、起服务、状态栏出图标;首次联网下载**无头渲染引擎 chrome-headless-shell ~100MB**(渲染不弹 Dock、已有则跳过)+ **Python 依赖 ~40MB**(测速自动选官方/清华源)。**装/设置/刷退 Kindle/检查更新/卸载全在状态栏菜单**。未签名,首开右键「打开」或系统设置放行一次。
+
+**命令行安装(开发者 / 进阶):**
+
 ```bash
+git clone https://github.com/yizhixiaoheigou/kindle-dashboard.git kindle-dashboard && cd kindle-dashboard
 bash installers/macos/install.sh
 ```
 
@@ -13,6 +18,8 @@ bash installers/macos/install.sh
 ```bash
 .venv/bin/python -m server.run     # 读 config.yaml 的端口,绑 0.0.0.0
 ```
+
+自己出 .dmg 分发:在 Mac 上 `bash installers/macos/build-mac-app.sh <版本>`(只能 Mac 跑;Linux 不能 hdiutil)。
 
 - 配置文件:**仓库外** `~/.config/kindle-dashboard/config.yaml`(首次从 `config.example.yaml` 生成,详见下「配置文件位置」)
 - 日志:`data/*.log`(service / menubar / codex-quota / reminders);**服务自动轮转**——超 5MB 截断只留最近 1MB,长期跑不爆盘,无需手动清。
@@ -77,11 +84,10 @@ bash installers/macos/install.sh
   设置页生成这行命令时,**看板地址下拉里有个 `Xxx.local:端口` 选项**——目标机支持 mDNS(多数 Mac/Linux)的话选它,可绕开 Mac IP 漂移(IP 变了名字不变);不支持 mDNS 的设备用 IP 地址即可。
   自启:Linux 用 `@reboot` cron、macOS 用 launchd。卸载:`... | sh -s -- uninstall`。
   **Windows**:设置页同时给出 PowerShell 命令(`iwr .../agent/install.ps1 ... | ...`),自启用『计划任务』(登录启动);卸载把末尾换成 `uninstall`。
-  **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机/SSH 的服务端间隔不同)。
-- **拉(SSH)**:服务端 SSH 进去读,目标机零安装;密码登录需主机装 `sshpass`,推荐用免密 key。
+  **间隔由目标机 agent 自己定(装时设),看板设置页改不了**(与本机直读的服务端间隔不同)。
 - `platform` 选对(auto/linux/macos/windows);可重命名、勾选只显示部分指标。
 
-采集脚本:`server/sources/collectors/`(linux.sh / macos.sh / windows.ps1),本机直读 / SSH 拉 / 推 agent 三处复用。
+采集脚本:`server/sources/collectors/`(linux.sh / macos.sh / windows.ps1),本机直读 / 推 agent 两处复用。
 推送 agent:`installers/push-agent/`(`install_agent.sh` 由看板 `/agent/install.sh` 下发;`push_agent.sh` 循环采集+POST)。
 
 ### 提醒事项(苹果,仅 macOS)
@@ -174,6 +180,5 @@ powershell -ExecutionPolicy Bypass -File installers\kindle\uninstall.ps1   # 一
 
 **待真机验证**:
 - macOS / Windows 采集脚本(`collect_macos.sh` / `collect_windows.ps1`)
-- SSH 拉模式(尤其密码登录需 `sshpass`;Windows 目标 SSH)
 - Mac launchd 安装(`installers/macos/`)
 - Kindle 识别/安装/卸载全流程(`installers/kindle/`,需真机 Kindle)

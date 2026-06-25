@@ -55,8 +55,9 @@
 {% else %}
 <div class="bento" style="display:flex;">
   <div class="idle"><div class="big">{{ printer.state_text if printer else t.printer_offline }}</div><div>{{ t.printer_no_task }}</div>
-  {% if printer %}<div style="margin-top:18px;font-size:14px;font-weight:600;" class="tnum">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}</div>
+  {% if printer %}<div style="margin-top:18px;font-size:14px;font-weight:600;" class="tnum">{{ t.printer_nozzle }} {{ printer.nozzle }}°C · {{ t.printer_bed }} {{ printer.bed }}°C</div>{% endif %}
+</div>
 </div>
 {% endif %}
-<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b></span><span><b>5 / 5</b> {{ t.page_printer }}</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span><b>{{ page_no }} / {{ page_total }}</b> {{ t.page_printer }}</span></div>
 </body></html>

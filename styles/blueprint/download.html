@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:工程蓝图。图头 + 全局带(尺寸线式键值)+ [TRANSFERS] 标注 + 种子行
+   (名称 | 带刻度量规进度条 | ↓↑ | 状态)+ 工程标题栏。纯灰度,量规外框+刻度。 */
+.gl{flex-shrink:0;display:flex;border-bottom:1px solid var(--ink);padding-bottom:9px;margin-bottom:10px;}
+.gl .f{flex:1;padding:0 11px;border-left:1px dotted var(--ink3);min-width:0;}
+.gl .f:first-child{padding-left:0;border-left:none;}
+.gl .f .k{font-size:9px;letter-spacing:1px;color:var(--ink3);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .f .v{font-size:19px;font-weight:700;letter-spacing:-0.5px;line-height:1.15;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tlist{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
+.trow{display:flex;align-items:center;gap:12px;padding:6px 0;border-bottom:1px dotted var(--ink3);}
+.trow:last-child{border-bottom:none;}
+.trow .nm{flex:1;min-width:0;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.trow .pr{width:150px;flex-shrink:0;display:flex;align-items:center;gap:7px;}
+.trow .pr .gauge{flex:1;height:12px;}
+.trow .pr .pc{font-size:11px;font-weight:700;width:30px;text-align:right;}
+.trow .sp{width:120px;flex-shrink:0;font-size:10px;color:var(--ink3);font-weight:700;white-space:nowrap;overflow:hidden;}
+.trow .sp b{color:var(--ink2);}
+.trow .stt{width:48px;flex-shrink:0;font-size:10px;font-weight:700;color:var(--ink2);text-align:right;letter-spacing:.3px;}
+.haempty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);letter-spacing:1px;}
+.haempty .big{font-size:24px;font-weight:700;color:var(--ink);margin-bottom:6px;}
+</style></head><body>
+{%- set d = download -%}
+<div class="sheet"><div class="drawing">
+  <div class="mast"><div><div class="pj">KINDLE-DASH · TRANSFERS</div><div class="ti">{{ t.dl_title }}</div></div><div class="meta tnum">{{ now }}</div></div>
+  <div class="main"><div class="col" style="flex:1;">
+    <div class="gl">
+      <div class="f"><div class="k">↓ DOWN</div><div class="v tnum">{{ d.dl_speed }}</div></div>
+      <div class="f"><div class="k">↑ UP</div><div class="v tnum">{{ d.up_speed }}</div></div>
+      <div class="f"><div class="k">UPLOADED</div><div class="v tnum">{{ d.uploaded }}</div></div>
+      <div class="f"><div class="k">RATIO</div><div class="v tnum">{{ d.ratio }}</div></div>
+      <div class="f"><div class="k">ACTIVE</div><div class="v tnum">{{ d.active }}/{{ d.total }}</div></div>
+    </div>
+    <div class="fig"><span class="tag">TRANSFERS</span><span class="ln"></span><span class="aux">{% if d.errors %}{{ d.errors|length }} {{ t.dl_offline }}{% else %}{{ d.active }} / {{ d.total }} {{ t.dl_active }}{% endif %}</span></div>
+    {% if d.torrents %}
+    <div class="tlist">
+      {% for tr in d.torrents %}
+      <div class="trow">
+        <span class="nm">{{ tr.name }}</span>
+        <span class="pr"><span class="gauge"><i class="dots{% if target=='android' and tr.state == 'downloading' %} a-fill{% endif %}" style="width:{{ tr.progress }}%;"></i></span><span class="pc tnum">{{ tr.progress }}</span></span>
+        <span class="sp tnum">↓<b>{{ tr.dl }}</b> ↑<b>{{ tr.up }}</b></span>
+        <span class="stt">{{ tr.state_text }}</span>
+        {% if target=='android' %}<button class="act ghost" style="flex-shrink:0;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="haempty"><div class="big">{{ t.dl_empty }}</div></div>
+    {% endif %}
+  </div></div>
+  <div class="titleblock">
+    <div class="cell grow"><div class="l">RATIO</div><div class="v tnum">{{ d.ratio }}</div></div>
+    <div class="cell"><div class="l">UPLOADED</div><div class="v tnum">{{ d.uploaded }}</div></div>
+    <div class="cell"><div class="l">UPDATED</div><div class="v tnum">{{ time_hm }}</div></div>
+    <div class="cell"><div class="l">{% if battery.has %}{% if battery.charging %}CHARGING{% else %}BATTERY{% endif %}</div><div class="v tnum">{{ battery.level }}%{% endif %}</div></div>
+    <div class="cell"><div class="l">SHEET</div><div class="v">{{ page_no }} / {{ page_total }}</div></div>
+  </div>
+</div></div>
+</body></html>

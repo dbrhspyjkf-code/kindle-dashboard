@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:便当。顶部 5 个圆角统计卡(↓↑强调卡)+ 一张大列表卡装种子(胶囊进度条)。
+   层级靠卡片填充深浅,纯灰度。 */
+.gl{flex-shrink:0;display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:10px;}
+.gl .s{background:var(--card);border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;overflow:hidden;}
+.gl .s.hero{background:var(--hero);}
+.gl .s .k{font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--ink3);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .s .v{font-size:20px;font-weight:800;letter-spacing:-.5px;line-height:1.1;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .s .v small{font-size:11px;color:var(--ink3);font-weight:700;}
+.dl-list{flex:1;min-height:0;background:var(--card);border-radius:14px;padding:2px 16px;display:flex;flex-direction:column;justify-content:space-around;overflow:hidden;}
+.tor{padding:6px 0;border-bottom:1px solid #e3e3e3;display:flex;flex-direction:column;gap:5px;}
+.tor:last-child{border-bottom:none;}
+.tor .top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.tor .nm{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tor .st{font-size:11px;font-weight:700;color:var(--ink3);flex-shrink:0;}
+.tor.on .st{color:var(--ink);}
+.tor .pw{display:flex;align-items:center;gap:10px;}
+.tor .pill{flex:1;height:8px;background:var(--track);border-radius:4px;overflow:hidden;}
+.tor .pill > i{display:block;height:100%;background:var(--ink2);border-radius:4px;}
+.tor.on .pill > i{background:var(--ink);}
+.tor .pc{font-size:11px;font-weight:800;min-width:34px;text-align:right;}
+.tor .meta{display:flex;gap:14px;font-size:11px;color:var(--ink3);font-weight:600;}
+.tor .meta b{color:var(--ink2);font-weight:700;}
+.dl-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);background:var(--card);border-radius:16px;}
+.dl-empty .big{font-size:30px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+</style></head><body>
+{%- set d = download -%}
+<div class="head"><div class="ttl">{{ t.dl_title }}<span class="sub">{{ d.active }} / {{ d.total }} {{ t.dl_active }}</span></div><div class="meta tnum">{{ now }}</div></div>
+<div class="gl">
+  <div class="s hero"><div class="k">↓ {{ t.dl_dl }}</div><div class="v tnum">{{ d.dl_speed }}</div></div>
+  <div class="s hero"><div class="k">↑ {{ t.dl_up }}</div><div class="v tnum">{{ d.up_speed }}</div></div>
+  <div class="s"><div class="k">{{ t.dl_uploaded }}</div><div class="v tnum">{{ d.uploaded }}</div></div>
+  <div class="s"><div class="k">{{ t.dl_ratio }}</div><div class="v tnum">{{ d.ratio }}</div></div>
+  <div class="s"><div class="k">{{ t.dl_active }}</div><div class="v tnum">{{ d.active }}<small> / {{ d.total }}</small></div></div>
+</div>
+{% if d.torrents %}
+<div class="dl-list">
+  {% for tr in d.torrents %}
+  <div class="tor {{ 'on' if tr.state == 'downloading' }}">
+    <div class="top"><div class="nm">{{ tr.name }}</div><div class="st">{{ tr.state_text }}</div>
+      {% if target=='android' %}<button class="act ghost" style="margin-left:auto;flex-shrink:0;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}</div>
+    <div class="pw"><div class="pill"><i class="{% if target=='android' and tr.state == 'downloading' %}a-fill{% endif %}" style="width:{{ tr.progress }}%;"></i></div><div class="pc tnum">{{ tr.progress }}%</div></div>
+    <div class="meta tnum"><span>↓<b>{{ tr.dl }}</b></span><span>↑<b>{{ tr.up }}</b></span><span>{{ t.dl_ratio }} <b>{{ tr.ratio }}</b></span><span>{{ tr.size }}</span>{% if tr.state == 'downloading' and tr.eta != '—' %}<span>{{ t.dl_eta }} <b>{{ tr.eta }}</b></span>{% endif %}</div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="dl-empty"><div class="big">{{ t.dl_empty }}</div></div>
+{% endif %}
+<div class="foot"><span>{{ t.foot_updated }} <b class="tnum">{{ time_hm }}</b></span><span>{% if d.errors %}{{ d.errors|length }} {{ t.dl_offline }}{% endif %}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<b class="tnum">{{ battery.level }}%</b>{% endif %}</span><span><b>{{ page_no }} / {{ page_total }}</b></span></div>
+</body></html>

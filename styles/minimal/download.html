@@ -1,0 +1,55 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* download 页:瑞士极简。全局带=大数字横排,种子列表=发丝线分隔行(名称 + 极细进度线 + 速度/状态)。
+   只用发丝线、无填充块,层级靠尺寸+留白。纯灰度。 */
+.gl{flex-shrink:0;display:flex;gap:30px;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:2px;}
+.gl .s{min-width:0;}
+.gl .s .k{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--ink3);margin-bottom:5px;white-space:nowrap;}
+.gl .s .v{font-size:30px;font-weight:600;letter-spacing:-1.5px;line-height:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gl .s .v small{font-size:13px;color:var(--ink3);font-weight:500;}
+.dl-list{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:space-around;}
+.tor{padding:9px 0;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:18px;}
+.tor:last-child{border-bottom:none;}
+.tor .nm{flex:1;min-width:0;}
+.tor .nm .t{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tor .nm .sub{font-size:11px;color:var(--ink3);font-weight:500;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tor .nm .sub b{color:var(--ink2);}
+.tor .gv{width:190px;flex-shrink:0;}
+.tor .gv .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+.tor .gv .pc{font-size:15px;font-weight:600;letter-spacing:-0.5px;}
+.tor .gv .stt{font-size:11px;font-weight:500;color:var(--ink3);}
+.tor .gv .line{height:2px;background:var(--track);overflow:hidden;}
+.tor .gv .line > i{display:block;height:100%;background:var(--ink);}
+.dl-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.dl-empty .big{font-size:40px;font-weight:600;color:var(--ink);margin-bottom:10px;letter-spacing:-1px;}
+</style></head><body>
+{%- set d = download -%}
+<div class="head"><div class="ttl">{{ t.dl_title }}</div><div class="meta tnum">{{ now }}</div></div>
+<div class="gl">
+  <div class="s"><div class="k">↓ {{ t.dl_dl }}</div><div class="v tnum">{{ d.dl_speed }}</div></div>
+  <div class="s"><div class="k">↑ {{ t.dl_up }}</div><div class="v tnum">{{ d.up_speed }}</div></div>
+  <div class="s"><div class="k">{{ t.dl_uploaded }}</div><div class="v tnum">{{ d.uploaded }}</div></div>
+  <div class="s"><div class="k">{{ t.dl_ratio }}</div><div class="v tnum">{{ d.ratio }}</div></div>
+  <div class="s"><div class="k">{{ t.dl_active }}</div><div class="v tnum">{{ d.active }}<small> / {{ d.total }}</small></div></div>
+</div>
+{% if d.torrents %}
+<div class="dl-list">
+  {% for tr in d.torrents %}
+  <div class="tor">
+    <div class="nm">
+      <div class="t">{{ tr.name }}</div>
+      <div class="sub tnum">↓<b>{{ tr.dl }}</b> &nbsp; ↑<b>{{ tr.up }}</b> &nbsp; {{ t.dl_ratio }} <b>{{ tr.ratio }}</b> &nbsp; {{ tr.size }}{% if tr.state == 'downloading' and tr.eta != '—' %} &nbsp; {{ t.dl_eta }} {{ tr.eta }}{% endif %}</div>
+    </div>
+    <div class="gv">
+      <div class="top"><span class="pc tnum">{{ tr.progress }}%</span><span class="stt">{{ tr.state_text }}</span></div>
+      <div class="line"><i class="{% if target=='android' and tr.state == 'downloading' %}a-fill{% endif %}" style="width:{{ tr.progress }}%;"></i></div>
+    </div>
+    {% if target=='android' %}<button class="act ghost" style="flex-shrink:0;" data-action="torrent" data-client="{{ tr.client }}" data-id="{{ tr.id }}" data-cmd="{{ 'resume' if tr.state == 'paused' else 'pause' }}">{{ t.a_resume if tr.state == 'paused' else t.a_pause }}</button>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="dl-empty"><div class="big">{{ t.dl_empty }}</div></div>
+{% endif %}
+<div class="foot"><span>{{ t.foot_updated }} <span class="tnum">{{ time_hm }}</span></span><span>{% if d.errors %}{{ d.errors|length }} {{ t.dl_offline }}{% endif %}</span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span>{{ "%02d"|format(page_no) }} / {{ "%02d"|format(page_total) }}</span></div>
+</body></html>

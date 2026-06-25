@@ -16,7 +16,7 @@
 # 中文
 
 ⚠️ **越狱免责**:越狱有风险。本项目**不含**越狱工具,只负责越狱**之后**的部分。
-🔒 **凭据安全**:你填的天气 Key / HA Token / SSH 账号**只存本地**(`config.yaml`),不上传任何服务器。
+🔒 **凭据安全**:你填的天气 Key / HA Token**只存本地**(`config.yaml`),不上传任何服务器。
 
 ## 🚀 一键部署
 
@@ -24,26 +24,34 @@
 
 **① 装服务**(在一台常开的 Mac 上)
 
+**图形安装(推荐,全程不碰命令行)**:到 [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) 下载 `墨水桌面看板-x.x.dmg` → 打开 → 把「墨水桌面看板」拖进「应用程序」→ 双击。首次打开自动建环境、起服务、顶部状态栏出现图标。首次需联网下载:**专用无头渲染引擎 chrome-headless-shell 约 100MB**(让渲染时 macOS Dock 不抖;已有则跳过)+ **Python 依赖约 40MB**(测速自动选最快的源)。之后**打开设置、刷入/退出 Kindle、检查更新、卸载,全在状态栏菜单点一下**,无需终端。
+
+> 未签名,首次打开若被拦:**右键图标选「打开」**,或「系统设置 → 隐私与安全性 → 仍要打开」放行一次。
+
+<details><summary>命令行安装(开发者 / 进阶)</summary>
+
 ```bash
-git clone <repo-url> kindle-dashboard && cd kindle-dashboard
+git clone https://github.com/yizhixiaoheigou/kindle-dashboard.git kindle-dashboard && cd kindle-dashboard
 bash installers/macos/install.sh
 ```
 
-脚本自动:建虚拟环境、装依赖、从示例生成 `config.yaml`、装 launchd 开机自启、启动服务。装完打印你的**设置页链接**和 **Kindle 拉图地址**。中途只会问你两件事(是否自动下载渲染引擎、是否启用 AI 用量),回车默认即可。
+脚本自动:建虚拟环境、装依赖、从示例生成 `config.yaml`、装 launchd 开机自启、启动服务,装完打印**设置页链接**和 **Kindle 拉图地址**;中途问几个可选项(渲染引擎下载、AI 用量等),回车默认即可。
+自己出 .dmg 分发(**仅能在 Mac 上跑**,依赖 `hdiutil`/`iconutil` 等系统工具):`bash installers/macos/build-mac-app.sh <版本号>`(版本号每次递增,装了旧版的用户才会收到升级提示)。
+</details>
 
 **② 网页设置**(浏览器点选,所见即所得)
 
-打开安装时打印的带令牌链接 `http://localhost:8585/setup?token=...`(或点 Mac 顶部菜单栏小图标 →「打开设置页」)。按模块填:天气、设备监控、Home Assistant、页面与风格、**界面语言(中/英)**——右侧**实时预览**。保存即生效,服务热重载,无需重启。（英文版看板自动隐藏农历/节气/生肖等中国元素;菜单栏也可切语言。）
+**点 Mac 顶部状态栏的看板图标 →「打开设置页」**(命令行安装的话,用装完打印的带令牌链接 `http://localhost:8585/setup?token=...`)。按模块填:天气、设备监控、Home Assistant、页面与风格、**界面语言(中/英)**——右侧**实时预览**。保存即生效,服务热重载,无需重启。（英文版看板自动隐藏农历/节气/生肖等中国元素;菜单栏也可切语言。）
 
 **③ 配 Kindle**(USB 连上 Mac、已越狱并开了 USBNetwork/SSH)
 
-```bash
-sh installers/kindle/install.sh
-```
+**图形安装**:状态栏菜单点「**刷入 Kindle**」→ 选 USB / WiFi → 按提示输密码,自动上屏。**命令行**:`sh installers/kindle/install.sh`。
 
-脚本推送显示脚本 + 写服务地址 + 加开机自启 + 立即上屏。之后**改配置只在网页保存即可,Kindle 侧再也不用碰**。
+之后**改配置只在网页保存即可,Kindle 侧再也不用碰**。
 
-> **不想用了?一键卸载,Kindle 完全恢复正常**:`sh installers/kindle/uninstall.sh` 会停看板、移除开机自启、删掉推送的脚本、恢复原界面——**Kindle 回到越狱前的正常状态,照常当电子书用,不留残留**。再加 `bash installers/macos/uninstall.sh` 停掉 Mac 服务即可。
+> **不想用了?一键还原,不留残留**:
+> · **还原 Kindle**:状态栏点「**退出 Kindle**」(或命令行 `sh installers/kindle/uninstall.sh`)——停看板、移除开机自启、恢复原界面,**Kindle 回到越狱前的正常状态、照常当电子书用**。
+> · **卸载 Mac 端**:状态栏点「**卸载墨水桌面看板**」,或直接把「墨水桌面看板」从「应用程序」拖进废纸篓(状态栏会自动清理后台服务)。命令行安装的话用 `bash installers/macos/uninstall.sh`。
 
 ## 这是什么
 
@@ -53,10 +61,12 @@ Kindle 当瘦客户端,只定时拉一张渲染好的 PNG 刷上屏;采集、聚
 各数据源 → 常开电脑上的服务(采集 + Chromium 渲染 PNG)→ Kindle 每 20s 拉图显示
 ```
 
-- 天气、提醒事项、AI 用量、设备监控(Win/Linux/Mac)、智能家居实体墙、3D 打印机(后两者经 Home Assistant)
+- 天气、提醒事项、AI 用量、设备监控(Win/Linux/Mac)、智能家居实体墙、3D 打印机(后两者经 Home Assistant)、RSS 资讯轮播(默认预置 AIHOT,无需密钥)、PT 下载看板(qBittorrent / Transmission 合并)
 - **配置化**:所有 IP / 密钥 / 页面 / 风格从网页设置读,代码里不写死
 - **配置即页面**:填了哪个数据源才显示对应页,没填自动隐藏
 - **诚实降级**:缺数据显示占位,不报错、不白屏;一个数据源挂掉不影响其他源
+- **安卓 App 版(可选)**:闲置旧手机/平板(安卓 5.0+)装上 APK,变成**彩色、可触控**的家庭看板,还能点着**操作设备**(HA 各类实体:开关 / 窗帘 / 空调 / 媒体 / 选择器 / 数值 / 场景 / 安防,简单的单击直接动、复杂的弹控制面板;种子暂停恢复)。3D 打印机为只读显示(经 HA 拓竹云模式无法发控制指令,详见 docs/android-app.md)。复用同一套风格模板(`target` 双出口),**不另写原生 UI**;Kindle 出图完全不受影响。见 [docs/android-app.md](docs/android-app.md)。
+- **浏览器看板(免装)**:任何电脑/平板浏览器直接打开 `/app?token=…` 即看实时看板,点 ⛶ 一键全屏;Kindle 自带古董浏览器用静态降级页 `/web-simple?token=…`(整图 + 自动重载)。链接从设置页底部拿。**不息屏在 HTTP 下做不到**(要么上 HTTPS、要么靠设备息屏设置,平板更建议装 App),详见 [docs/browser-dashboard.md](docs/browser-dashboard.md)。
 
 ## 效果预览
 
@@ -95,13 +105,15 @@ Kindle 当瘦客户端,只定时拉一张渲染好的 PNG 刷上屏;采集、聚
 **WiFi SSH(方便远程调试,但需要先知道 Kindle IP)**:
 1. 确保 Kindle 已连上和电脑同一个 WiFi
 2. KUAL → USBNetwork → **Toggle SSH over WiFi**(确认 `sshd for WiFi` 显示 `enabled`)
-3. 在 Kindle 上查 IP:首页 → 设置 → 设备信息 → 里面有 WiFi IP(如 `192.168.5.36`)
-4. 电脑终端:`ssh root@192.168.5.36`(密码同上)
+3. 在 Kindle 上查 IP:首页 → 设置 → 设备信息 → 里面有 WiFi IP(如 `192.168.1.50`)
+4. 电脑终端:`ssh root@192.168.1.50`(密码同上)
 
 > 如果 KUAL 里没有 USBNetwork 菜单,说明越狱时漏装了 USBNetwork hack——去 MobileRead 论坛下载对应型号的 `kindle-usbnet-hack` 装上即可。
 </details>
 
 ## 快速开始(Mac)
+
+> 下面偏命令行 / 进阶细节;**图形安装(.dmg)的全部操作——装服务、开设置、刷/退 Kindle、检查更新、卸载——都在顶部状态栏菜单点一下完成**,见上方「🚀 一键部署」。
 
 ### 1. 装服务
 
@@ -110,7 +122,7 @@ Kindle 当瘦客户端,只定时拉一张渲染好的 PNG 刷上屏;采集、聚
 - 配置文件:**存在仓库外** `~/.config/kindle-dashboard/config.yaml`(`KINDLE_CONFIG` 可覆盖)——这样**升级 / 重装 / 删库重拉都不会丢你的设置**;老版本放在仓库内的会自动迁移过去
 - 日志:`data/*.log`,服务自动轮转(超 5MB 截断留最近 1MB),长期跑不爆盘
 - **访问令牌**:首次启动自动生成,存 `config.yaml` 的 `server.access_token`,防同 WiFi 他人窥探/篡改设置页。**用带令牌的链接打开设置页**;Kindle 拉图、设备上报、`/health` 豁免,不受影响
-- **在线升级**:Mac 顶部菜单栏 →「检查更新」,有新版点「升级」自动 `git pull` + 重启(配置在仓库外,升级不丢设置)
+- **在线升级**:Mac 顶部状态栏 →「检查更新」。**图形(.dmg)安装**:有新版引导去下载新 .dmg、拖进应用程序覆盖(版本号变会自动重装、配置不丢);**命令行安装**:有新版点「升级」自动 `git pull` + 重启。
 
 ### 2. 网页设置
 
@@ -118,7 +130,7 @@ Kindle 当瘦客户端,只定时拉一张渲染好的 PNG 刷上屏;采集、聚
 
 - **天气**:和风天气 QWeather 的 Key + API Host + 城市(搜城市名直接选,自动匹配编码)
 - **AI 用量**:本机直读 ccusage,安装时选「启用」即自动装好;可设 **Claude / Codex 价格倍率**(中转站对账,官方价 × 倍率)
-- **设备监控**:加要监控的机器(本机直读 / 推 agent / SSH 拉),可重命名、勾选显示项
+- **设备监控**:加要监控的机器(本机直读 / 推 agent),可重命名、勾选显示项
 - **Home Assistant**:地址 + 长期访问令牌(填了才出打印机 / 智能家居页)
 - **页面与风格**:选风格(7 套皮肤)、选 Kindle 机型(按原生分辨率出清晰图),右侧实时预览
 
@@ -138,7 +150,11 @@ Kindle 开始显示看板(**横放**,顶边朝右)。安装时会问 **Kindle �
 
 ## 不想用了(一键卸载,完全恢复)
 
-随时可以一键退出,**Kindle 干净还原到正常状态**——继续当普通电子书用,不留任何脚本/自启残留(本项目只动看板相关部分,不碰你的越狱):
+随时可以一键退出,**Kindle 干净还原到正常状态**——继续当普通电子书用,不留任何脚本/自启残留(本项目只动看板相关部分,不碰你的越狱)。
+
+**图形安装(.dmg)**:状态栏点「退出 Kindle」还原 Kindle、点「卸载墨水桌面看板」清掉 Mac 端(或直接把 .app 拖进废纸篓,状态栏会自动清理后台服务)。
+
+**命令行安装**:
 
 ```bash
 sh installers/kindle/uninstall.sh       # 还原 Kindle:停看板、移除开机自启、删除推送的脚本、恢复原界面
@@ -156,7 +172,7 @@ bash installers/macos/uninstall.sh      # 停 Mac 服务(加 --purge 连 venv/�
 **NAS 上(一次)**
 
 ```bash
-git clone <repo-url> kindle-dashboard && cd kindle-dashboard
+git clone https://github.com/yizhixiaoheigou/kindle-dashboard.git kindle-dashboard && cd kindle-dashboard
 bash installers/nas/install.sh
 ```
 
@@ -166,7 +182,7 @@ bash installers/nas/install.sh
 
 **Mac 上(推数据到 NAS)**
 
-**不需要在 Mac 上 clone 仓库。** 把 `NAS_IP` 换成你 NAS 的局域网地址(如 `192.168.5.138`),每条命令一行搞定:
+**不需要在 Mac 上 clone 仓库。** 把 `NAS_IP` 换成你 NAS 的局域网地址(如 `192.168.1.100`),每条命令一行搞定:
 
 ```bash
 # ① AI 用量(ccusage):采集本机 Claude/Codex 日志,定时推给 NAS
@@ -178,6 +194,9 @@ curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- http://NAS_I
 
 # ③ AI 额度(Claude/Codex 5h·周窗口,仅 macOS)
 curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- http://NAS_IP:8585
+
+# ④ Apple Music 当前播放(仅 macOS)
+curl -fsSL http://NAS_IP:8585/agent/install_music.sh | sh -s -- http://NAS_IP:8585 5
 ```
 
 每条命令从 NAS 下载轻量脚本到 `~/.kindle-dashboard/`,装 launchd 定时推送,**Mac 重启后自动恢复**。不需要 Python、不需要 venv、不需要 config.yaml。
@@ -189,6 +208,7 @@ curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- http://NAS_IP:85
 curl -fsSL http://NAS_IP:8585/agent/install_ccusage.sh | sh -s -- uninstall
 curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- uninstall
 curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- uninstall
+curl -fsSL http://NAS_IP:8585/agent/install_music.sh | sh -s -- uninstall
 ```
 
 **多台 Mac / 多设备**:每台跑自己的 enable 命令即可,设备自动以主机名区分。看板服务按日期 + 模型把所有设备的数据**相加合并**(不是覆盖、不是取最大),AI 页显示的是所有设备的总量。
@@ -222,9 +242,11 @@ docker compose up -d --build     # 重建(代码更新后)
 | 提醒事项 | Microsoft To Do | 微软账号登录一次(免密钥) |
 | AI 用量 | ccusage(本机直读,无中间件) | 装了 ccusage 的机器(安装时自动装) |
 | AI 额度 | Claude / Codex 5h·周窗口 | 仅 macOS,push 上报(见详细文档) |
-| 设备监控 | Win/Linux/Mac | 本机直读 / 推 agent / SSH 拉 |
+| 设备监控 | Win/Linux/Mac | 本机直读 / 推 agent |
 | 智能家居 | Home Assistant 实体 | HA 地址 + 令牌,网页选实体 |
 | 3D 打印机 | 拓竹(经 Home Assistant) | HA 地址 + 令牌 |
+| 资讯 | RSS 订阅源(默认预置 AIHOT) | 无需密钥;网页填任意 RSS URL |
+| 下载 | qBittorrent / Transmission(可多台) | 地址+端口+账号密码;合并显示所有种子 |
 
 详见 [docs/install.md](docs/install.md)(详细步骤 + 故障排查)、[数据契约](docs/data-contract.md)。
 
@@ -238,7 +260,7 @@ docker compose up -d --build     # 重建(代码更新后)
 
 ✅ **P0(Mac 版)核心闭环真机验证通过**(Mac 装服务 / 网页配置预览 / Kindle 一键上屏 / 一键还原,均在真机跑通)。
 ✅ **P1(NAS Docker)已实现** —— `docker compose up` 一键部署,Chromium / 中文字体 / 僵尸收割打进镜像;Mac 数据(ccusage / 提醒 / 额度)通过 push 脚本推到 NAS,多设备按日汇总相加。
-🚧 部分 macOS/Windows 采集路径(push agent、SSH 拉)待更多真机验证。
+🚧 部分 macOS/Windows 采集路径(push agent)待更多真机验证。
 全套自动化测试(`python3 -m pytest tests/ -q`)覆盖配置 schema/加载/校验、数据契约/整合、渲染管线真实出图、风格调度、Linux 采集端到端、主服务全部 API、设置页与实时预览、NAS 多设备合并。
 
 路线:**P0 Mac ✅ → P1 NAS Docker ✅ → P2 风格系统 → P3 扩展**。
@@ -254,7 +276,7 @@ docker compose up -d --build     # 重建(代码更新后)
 # English
 
 ⚠️ **Jailbreak disclaimer**: Jailbreaking carries risk. This project does **not** include jailbreak tools — it only handles what comes **after** the jailbreak.
-🔒 **Credential safety**: Your weather key / HA token / SSH credentials are **stored locally only** (`config.yaml`) and never uploaded anywhere.
+🔒 **Credential safety**: Your weather key / HA token are **stored locally only** (`config.yaml`) and never uploaded anywhere.
 
 ## 🚀 One-command deploy
 
@@ -262,26 +284,33 @@ Three steps, one command each, with one round of web-form clicking in between �
 
 **① Install the service** (on an always-on Mac)
 
+**Graphical install (recommended, no command line)**: download `墨水桌面看板-x.x.dmg` from [Releases](https://github.com/yizhixiaoheigou/kindle-dashboard/releases) → open it → drag "墨水桌面看板" into Applications → double-click. First launch builds the environment, starts the service, and shows an icon in the top status bar. First time it downloads: the **dedicated headless render engine chrome-headless-shell (~100MB)** so the macOS Dock doesn't flicker while rendering (skipped if already present), plus **Python deps ~40MB** (auto-picked fastest mirror). Afterwards **open settings, flash/remove Kindle, check for updates, and uninstall — all one click in the status-bar menu**, no terminal.
+
+> Unsigned: if the first open is blocked, **right-click the icon → Open**, or System Settings → Privacy & Security → "Open Anyway" once.
+
+<details><summary>Command-line install (developer / advanced)</summary>
+
 ```bash
-git clone <repo-url> kindle-dashboard && cd kindle-dashboard
+git clone https://github.com/yizhixiaoheigou/kindle-dashboard.git kindle-dashboard && cd kindle-dashboard
 bash installers/macos/install.sh
 ```
 
-The script automatically: creates a virtualenv, installs dependencies, generates `config.yaml` from the example, installs a launchd autostart, and starts the service. When done it prints your **settings-page link** and **Kindle image URL**. It only asks you two things along the way (auto-download the render engine? enable AI usage?) — pressing Enter takes the defaults.
+The script creates a virtualenv, installs deps, generates `config.yaml`, installs a launchd autostart, and starts the service; it prints your **settings-page link** and **Kindle image URL**. Build your own .dmg (**macOS only** — needs `hdiutil`/`iconutil`): `bash installers/macos/build-mac-app.sh <version>` (bump the version each time so existing installs get the update prompt).
+</details>
 
 **② Configure via web** (point-and-click, WYSIWYG)
 
-Open the token link printed at install time: `http://localhost:8585/setup?token=...` (or click the menu-bar icon at the top of your Mac → "Open settings"). Fill in by module: Weather, Device monitoring, Home Assistant, Pages & styles, **UI language (中/EN)** — with a **live preview** on the right. Saves take effect immediately via hot-reload, no restart. (The English dashboard auto-hides Chinese-calendar elements — lunar date, solar terms, zodiac; the menu bar can switch language too.)
+**Click the dashboard icon in your Mac's top status bar → "Open settings"** (command-line install: use the token link printed at install time, `http://localhost:8585/setup?token=...`). Fill in by module: Weather, Device monitoring, Home Assistant, Pages & styles, **UI language (中/EN)** — with a **live preview** on the right. Saves take effect immediately via hot-reload, no restart. (The English dashboard auto-hides Chinese-calendar elements — lunar date, solar terms, zodiac; the menu bar can switch language too.)
 
 **③ Set up the Kindle** (connected via USB, already jailbroken with USBNetwork/SSH enabled)
 
-```bash
-sh installers/kindle/install.sh
-```
+**Graphical install**: status-bar menu → "**Flash to Kindle**" → choose USB / WiFi → enter the password when prompted; it goes on screen automatically. **Command line**: `sh installers/kindle/install.sh`.
 
-The script pushes the display scripts, writes the server address, adds autostart, and puts the dashboard on screen right away. After that, **just save config changes in the web page — you never touch the Kindle again.**
+After that, **just save config changes in the web page — you never touch the Kindle again.**
 
-> **Done with it? One-command uninstall, Kindle fully back to normal**: `sh installers/kindle/uninstall.sh` stops the dashboard, removes autostart, deletes the pushed scripts, and restores the original UI — **the Kindle returns to its normal state and works as a regular e-reader again, with no leftovers**. Then `bash installers/macos/uninstall.sh` stops the Mac service.
+> **Done with it? One-tap restore, no leftovers**:
+> · **Restore the Kindle**: status-bar menu → "**Remove from Kindle**" (or command line `sh installers/kindle/uninstall.sh`) — stops the dashboard, removes autostart, restores the original UI; **the Kindle works as a regular e-reader again**.
+> · **Uninstall the Mac side**: status-bar menu → "**Uninstall Moshui Dashboard**", or just drag it from Applications to the Trash (the status bar auto-cleans the background service). Command-line install: `bash installers/macos/uninstall.sh`.
 
 ## What is this
 
@@ -291,10 +320,12 @@ The Kindle acts as a thin client: it just periodically fetches one pre-rendered 
 data sources → service on always-on computer (collect + Chromium render PNG) → Kindle fetches image every 20s
 ```
 
-- Weather, reminders, AI usage, device monitoring (Win/Linux/Mac), a Home Assistant entity wall, and a 3D printer (the last two via Home Assistant)
+- Weather, reminders, AI usage, device monitoring (Win/Linux/Mac), a Home Assistant entity wall, a 3D printer (the last two via Home Assistant), a rotating RSS news page (AIHOT preloaded, no key needed), and a PT download dashboard (qBittorrent / Transmission merged)
 - **Config-driven**: every IP / key / page / style is read from the web settings; nothing user-specific is hardcoded
 - **Config = pages**: a page shows only if its data source is configured; unconfigured pages auto-hide
 - **Honest degradation**: missing data shows a placeholder — never an error, never a blank screen; one failing source doesn't affect the others
+- **Android app (optional)**: side-load the APK onto an old phone/tablet (Android 5.0+) to get a **color, touch** dashboard that can also **control devices** (all HA entity types: switches / covers / climate / media / selects / numbers / scenes / alarms — simple ones act on a tap, complex ones open a control sheet; torrent pause-resume). The 3D printer is display-only (HA's Bambu cloud mode can't deliver control commands). Reuses the same style templates (a `target` dual-output) — **no separate native UI**; Kindle rendering is unaffected. See [docs/android-app.md](docs/android-app.md).
+- **Browser dashboard (no install)**: open `/app?token=…` in any computer/tablet browser for the live dashboard, tap ⛶ for fullscreen; the Kindle's ancient built-in browser uses the static fallback `/web-simple?token=…` (whole image + auto-reload). Grab the links from the bottom of the setup page. **Keeping the screen awake isn't possible over plain HTTP** (either serve HTTPS, or set the device itself to never sleep — for tablets, the app is the better bet). See [docs/browser-dashboard.md](docs/browser-dashboard.md).
 
 ## Screenshots
 
@@ -333,13 +364,15 @@ After jailbreaking, the Kindle will have a **KUAL** app (launcher). Open it:
 **WiFi SSH (convenient for remote access, but you need to know the Kindle's IP first):**
 1. Make sure the Kindle is on the same WiFi as your computer
 2. KUAL → USBNetwork → **Toggle SSH over WiFi** (confirm `sshd for WiFi` shows `enabled`)
-3. Find the Kindle's IP: Home → Settings → Device Info → look for the WiFi IP (e.g. `192.168.5.36`)
-4. On your computer: `ssh root@192.168.5.36` (same password)
+3. Find the Kindle's IP: Home → Settings → Device Info → look for the WiFi IP (e.g. `192.168.1.50`)
+4. On your computer: `ssh root@192.168.1.50` (same password)
 
 > If you don't see USBNetwork in KUAL, the jailbreak is missing the USBNetwork hack — download `kindle-usbnet-hack` for your model from the MobileRead forums and install it.
 </details>
 
 ## Quick start (Mac)
+
+> Below is command-line / advanced detail; **with the graphical (.dmg) install, everything — install, settings, flash/remove Kindle, check for updates, uninstall — is one click in the top status-bar menu**, see "🚀 One-command deploy" above.
 
 ### 1. Install the service
 
@@ -348,7 +381,7 @@ See "🚀 One-command deploy ①" above. To run manually (for debugging): `.venv
 - Config file: **stored outside the repo** at `~/.config/kindle-dashboard/config.yaml` (override with `KINDLE_CONFIG`) — so **upgrades / reinstalls / delete-and-reclone never lose your settings**; an old in-repo `config.yaml` is auto-migrated
 - Logs: `data/*.log`, auto-rotated by the service (truncated to the last 1MB past 5MB) so long runs won't fill the disk
 - **Access token**: auto-generated on first start, stored in `server.access_token` of `config.yaml`, to keep others on the same WiFi from snooping/tampering with the settings page. **Open the settings page via the token link**; Kindle image fetch, device reporting, and `/health` are exempt.
-- **Online upgrade**: Mac menu bar → "Check for updates"; if a new version exists, click "Upgrade" to auto `git pull` + restart (config lives outside the repo, so upgrades never touch your settings).
+- **Online upgrade**: Mac status bar → "Check for updates". **Graphical (.dmg) install**: a new version guides you to download the new .dmg and drop it into Applications (a version bump auto-reinstalls; config is untouched). **Command-line install**: click "Upgrade" to auto `git pull` + restart.
 
 ### 2. Configure via web
 
@@ -356,7 +389,7 @@ See "🚀 One-command deploy ②" above. Fill in by module:
 
 - **Weather**: QWeather API Key + API Host + city (search by city name and pick — the code is matched automatically)
 - **AI usage**: reads local ccusage directly; choose "enable" at install time and it's set up automatically. You can set **Claude / Codex price multipliers** (for reconciling with a relay provider — official price × multiplier)
-- **Device monitoring**: add machines to monitor (local read / push agent / SSH pull), rename them, pick which metrics to show
+- **Device monitoring**: add machines to monitor (local read / push agent), rename them, pick which metrics to show
 - **Home Assistant**: address + long-lived access token (required for the printer / smart-home pages to appear)
 - **Pages & styles**: choose a style (7 skins), choose your Kindle model (renders at native resolution), live preview on the right
 
@@ -376,7 +409,11 @@ The Kindle starts showing the dashboard (**landscape**, top edge to the right). 
 
 ## Uninstall (one command, fully restored)
 
-You can back out anytime — the **Kindle is cleanly restored to its normal state** and works as a regular e-reader again, with no leftover scripts or autostart entries (this project only touches dashboard-related parts, never your jailbreak):
+You can back out anytime — the **Kindle is cleanly restored to its normal state** and works as a regular e-reader again, with no leftover scripts or autostart entries (this project only touches dashboard-related parts, never your jailbreak).
+
+**Graphical install (.dmg)**: status bar → "Remove from Kindle" to restore the Kindle, and "Uninstall Moshui Dashboard" to clean the Mac side (or just drag the .app to the Trash — the status bar auto-cleans the background service).
+
+**Command-line install**:
 
 ```bash
 sh installers/kindle/uninstall.sh       # restore Kindle: stop dashboard, remove autostart, delete pushed scripts, restore UI
@@ -390,7 +427,7 @@ Don't want to keep a Mac running 24/7? Run the dashboard service on a NAS (Docke
 **On the NAS (once)**
 
 ```bash
-git clone <repo-url> kindle-dashboard && cd kindle-dashboard
+git clone https://github.com/yizhixiaoheigou/kindle-dashboard.git kindle-dashboard && cd kindle-dashboard
 bash installers/nas/install.sh
 ```
 
@@ -400,7 +437,7 @@ Config and data live in Docker volumes (`config` / `data`) — **rebuilding the 
 
 **On the Mac (push data to the NAS)**
 
-**No need to clone the repo on the Mac.** Replace `NAS_IP` with your NAS's LAN address (e.g. `192.168.5.138`); each command is one line:
+**No need to clone the repo on the Mac.** Replace `NAS_IP` with your NAS's LAN address (e.g. `192.168.1.100`); each command is one line:
 
 ```bash
 # ① AI usage (ccusage): collect local Claude/Codex logs, push to NAS
@@ -412,6 +449,9 @@ curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- http://NAS_I
 
 # ③ AI quota (Claude/Codex 5h·weekly windows, macOS only)
 curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- http://NAS_IP:8585
+
+# ④ Apple Music now playing (macOS only)
+curl -fsSL http://NAS_IP:8585/agent/install_music.sh | sh -s -- http://NAS_IP:8585 5
 ```
 
 Each command downloads a lightweight script from the NAS into `~/.kindle-dashboard/` and sets up a launchd timer — **survives Mac reboot automatically**. No Python venv, no config.yaml, no repo clone.
@@ -423,6 +463,7 @@ To disable a specific push (replace the trailing argument with `uninstall`):
 curl -fsSL http://NAS_IP:8585/agent/install_ccusage.sh | sh -s -- uninstall
 curl -fsSL http://NAS_IP:8585/agent/install_reminders.sh | sh -s -- uninstall
 curl -fsSL http://NAS_IP:8585/agent/install_quota.sh | sh -s -- uninstall
+curl -fsSL http://NAS_IP:8585/agent/install_music.sh | sh -s -- uninstall
 ```
 
 **Multiple Macs / devices**: just run the enable commands on each machine — devices are auto-identified by hostname. The dashboard service **sums all devices' data by date + model** (no overwriting, no max) so the AI page shows the combined total across all machines.
@@ -456,9 +497,11 @@ docker compose up -d --build     # rebuild (after code updates)
 | Reminders | Microsoft To Do | one Microsoft sign-in (no API key) |
 | AI usage | ccusage (local read, no middleware) | a machine with ccusage (auto-installed) |
 | AI quota | Claude / Codex 5h·weekly windows | macOS only, pushed in (see docs) |
-| Device monitoring | Win/Linux/Mac | local read / push agent / SSH pull |
+| Device monitoring | Win/Linux/Mac | local read / push agent |
 | Smart home | Home Assistant entities | HA address + token, pick entities in web |
 | 3D printer | Bambu Lab (via Home Assistant) | HA address + token |
+| News | RSS feeds (AIHOT preloaded) | No key; add any RSS URL on the web UI |
+| Downloads | qBittorrent / Transmission (multiple) | host+port+credentials; all torrents merged |
 
 See [docs/install.md](docs/install.md) (detailed steps + troubleshooting), [data contract](docs/data-contract.md).
 
@@ -472,7 +515,7 @@ Styles are decoupled as "data contract + style pack": all styles reference the s
 
 ✅ **P0 (Mac) core loop verified on real hardware** (Mac service install / web config & preview / one-command Kindle display / one-command rollback all run on real devices).
 ✅ **P1 (NAS Docker) implemented** — `docker compose up` one-command deploy with Chromium / CJK fonts / zombie reaping baked into the image; Mac data (ccusage / reminders / quota) pushed to NAS via scripts, multi-device daily totals summed automatically.
-🚧 Some macOS/Windows collection paths (push agent, SSH pull) await more real-device verification.
+🚧 Some macOS/Windows collection paths (push agent) await more real-device verification.
 The full automated test suite (`python3 -m pytest tests/ -q`) covers config schema/loading/validation, the data contract/integration, real render-pipeline output, style scheduling, end-to-end Linux collection, all main-service APIs, the settings page with live preview, and NAS multi-device merge.
 
 Roadmap: **P0 Mac ✅ → P1 NAS Docker ✅ → P2 style system → P3 extensions**.

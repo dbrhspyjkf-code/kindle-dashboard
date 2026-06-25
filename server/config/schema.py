@@ -120,6 +120,10 @@ SCHEMA: list = [
             Field("render_grayscale", "灰度输出", "bool", True),
             Field("render_interval", "出图刷新间隔(秒)", "int", 30,
                   help="多久重渲染一次看板图(刷新时钟与已变数据)。与采集解耦,慢数据源不影响它。"),
+            Field("app_poll_interval", "App 刷新间隔(秒)", "int", 5,
+                  label_en="App refresh interval (s)",
+                  help="安卓 App 版活 HTML 每隔几秒拉一次最新页面(触控版,与 Kindle 出图无关)。建议 3~10。",
+                  help_en="How often the Android app re-fetches the live page (touch version; unrelated to Kindle frames). 3~10 recommended."),
             Field("access_token", "设置页访问令牌", "str", "", secret=True,
                   help="保护设置页/配置接口不被同 WiFi 其他人访问。安装/首次启动自动生成,"
                        "用带令牌的链接打开设置页(install 会打印 :端口/setup?token=...)。"
@@ -236,6 +240,97 @@ SCHEMA: list = [
     ),
 
     Section(
+        key="news", label="资讯(RSS)", page="news",
+        help="把任意 RSS 订阅源显示成一屏资讯,自动轮播。默认已预置 AIHOT(AI 行业每日精选),"
+             "无需任何账号/密钥。想换源/加源,改下面的列表即可;清空则关闭此页。",
+        label_en="News (RSS)",
+        help_en="Show any RSS feed as a rotating headline page. Comes preloaded with AIHOT "
+                "(curated daily AI news); no account or key needed. Add or change feeds below; "
+                "clear the list to hide this page.",
+        enable_when=["feeds"],          # 列表非空即启用(list 特判见 enabled_modules,同 ha_page/devices)
+        fields=[
+            Field("feeds", "订阅源", "module_list",
+                  default=[{"url": "https://aihot.virxact.com/feed.xml", "name": "AIHOT"}],
+                  label_en="Feeds",
+                  item_fields=[
+                      Field("url", "RSS 地址", "str", "", required=True,
+                            help="任意 RSS 2.0 订阅地址。", label_en="RSS URL"),
+                      Field("name", "来源名(可选)", "str", "",
+                            help="留空=用 feed 自带的来源。", label_en="Name"),
+                  ]),
+            Field("rotate", "轮播方式", "enum", "random",
+                  options=[("random", "随机"), ("time", "按时间(新→旧)")],
+                  label_en="Rotation", help_en="random | by time (newest first)",
+                  help="资讯页每轮到一次换一批新的(跟看板翻页节奏走、停留期间不变):随机=每次随机挑、按时间=从新到旧循环。"),
+            Field("interval", "拉取间隔(秒)", "int", 1800,
+                  label_en="Fetch interval (s)",
+                  help="多久从 RSS 拉一次。资讯变化慢,建议 ≥1800。"),
+        ],
+    ),
+
+    Section(
+        key="downloaders", label="下载器", page="download",
+        help="接入 qBittorrent / Transmission(可多台),把所有种子合并显示成一屏下载看板。"
+             "填了至少一个才出此页;清空则隐藏。账号密码只存本地。",
+        label_en="Downloaders",
+        help_en="Connect qBittorrent / Transmission (multiple OK); shows all torrents merged on one page. "
+                "Add at least one to show the page; clear to hide. Credentials stored locally only.",
+        enable_when=["clients"],        # 列表非空即启用(list 特判见 enabled_modules,同 ha_page/devices)
+        fields=[
+            Field("clients", "下载器", "module_list", default=[],
+                  label_en="Clients",
+                  item_fields=[
+                      # name 必须第一位:loader 的 secret 回填按 item_fields[0] 匹配(密码不串台)
+                      Field("name", "名称", "str", "", required=True,
+                            help="自己起个名,如「群晖 qB」。", label_en="Name"),
+                      Field("type", "类型", "enum", "qbittorrent",
+                            options=[("qbittorrent", "qBittorrent"), ("transmission", "Transmission")],
+                            label_en="Type"),
+                      Field("host", "地址", "str", "", required=True,
+                            help="如 192.168.x.x", label_en="Host"),
+                      Field("port", "端口", "int", 8080,
+                            help="qB 默认 8080;Transmission 默认 9091。", label_en="Port"),
+                      Field("username", "用户名", "str", "", label_en="Username"),
+                      Field("password", "密码", "str", "", secret=True, label_en="Password"),
+                  ]),
+            Field("rows", "显示条数", "int", 8,
+                  help="种子列表最多显示几条(活跃优先);全局统计仍含全部。", label_en="Rows"),
+            Field("interval", "采集间隔(秒)", "int", 15,
+                  help="多久拉一次下载状态。下载变化快,建议 10~30。", label_en="Interval (s)"),
+        ],
+    ),
+
+    Section(
+        key="music", label="音乐(Apple Music)", page="music",
+        help="显示 Mac 上 Apple Music / Music.app 的当前播放。由 Mac 上的 Music agent 定时上报;"
+             "启用后即使没在放歌也会显示空状态页。采集 agent 用设置页给的一行命令装(install_music.sh),此处控制是否启用页面。",
+        label_en="Music (Apple Music)",
+        help_en="Show the current track from Apple Music / Music.app on your Mac, pushed by a Mac agent. "
+                "Once enabled the page stays in rotation and shows an empty state when nothing is playing. "
+                "The Mac agent is a separate upcoming task; this toggle only controls the page.",
+        enable_when=["enabled"],
+        fields=[
+            Field("enabled", "启用", "bool", False, label_en="Enabled"),
+            Field("interval", "上报间隔(秒)", "int", 5,
+                  help="Mac Music agent 多久推一次当前播放。建议 2~5 秒;改后需重跑安装命令。",
+                  label_en="Push interval (s)",
+                  help_en="How often the Mac Music agent pushes the current track. 2-5 seconds recommended; rerun the install command after changing."),
+            Field("pause_idle_after", "暂停转封面墙(秒)", "int", 300,
+                  help="暂停超过多久后不再显示暂停歌曲页,改为专辑封面墙。0=关闭。",
+                  label_en="Paused idle wall after (s)",
+                  help_en="After this many paused seconds, show the album-wall screensaver instead of the paused track. 0 disables it."),
+            Field("artwork_cache_limit", "封面缓存上限(张)", "int", 120,
+                  help="服务端最多缓存多少张历史专辑封面,用于无播放/暂停超时封面墙。",
+                  label_en="Artwork cache limit",
+                  help_en="Maximum number of historical album covers kept for the idle album wall."),
+            Field("artwork_wall_count", "封面墙数量(张)", "int", 20,
+                  help="每次封面墙最多抽取多少张缓存封面。实际数量受缓存中已有封面数量限制。",
+                  label_en="Album wall covers",
+                  help_en="Maximum cached covers sampled for each album wall."),
+        ],
+    ),
+
+    Section(
         key="ha_page", label="智能家居", page="ha",
         help="把 Home Assistant 里你关心的实体显示成一面卡片墙(需先配好上面的 Home Assistant 地址+令牌)。",
         enable_when=["entities"],   # 选了至少一个实体才启用;list 特判见 enabled_modules
@@ -261,35 +356,28 @@ SCHEMA: list = [
                   item_fields=[
                       Field("name", "名称", "str", "", required=True,
                             help="显示名,可自定义(如 客厅NAS)。push 设备默认用 hostname,可改。"),
-                      # 关联键:push=agent 上报的 id/hostname;ssh 可留空(用 host);local 留空。
+                      # 关联键:push=agent 上报的 id/hostname;local 留空。
                       Field("id", "标识", "str", "",
-                            help="数据关联用。push 由 agent 上报;local/ssh 一般留空。"),
+                            help="数据关联用。push 由 agent 上报;local 一般留空。"),
                       # 要显示的指标条:cpu/mem/net/disk_io/vol:<挂载点>。留空=全显示。
                       # 可勾选项由设置网页按设备实际上报内容动态生成。
                       Field("fields", "显示项", "str_list", default=[],
                             help="勾选要显示的指标,留空=全显示。"),
                       Field("mode", "采集方式", "enum", "local",
                             options=[("local", "本机直读"),
-                                     ("push", "推(目标机装 agent)"),
-                                     ("ssh", "拉(服务端 SSH 进去读)")]),
+                                     ("push", "推(目标机装 agent)")]),
                       # 被监控机的系统 —— 采集脚本按它分(linux/macos/windows)。
-                      # local/push 可自检;ssh 选 auto 则服务端先探测,建议明确选。
+                      # local 自检;auto 则服务端先探测,建议明确选。
                       Field("platform", "系统", "enum", "auto",
                             options=[("auto", "自动识别"), ("linux", "Linux"),
                                      ("macos", "macOS"), ("windows", "Windows")]),
-                      Field("host", "地址", "str", "",
-                            help="push/ssh 模式填,如 192.168.x.x"),
-                      Field("ssh_user", "SSH 用户", "str", "", help="仅 ssh 模式"),
-                      Field("ssh_port", "SSH 端口", "int", 22, help="仅 ssh 模式"),
-                      Field("ssh_password", "SSH 密码", "str", "", secret=True,
-                            help="仅 ssh 模式;只存本地"),
                   ]),
             Field("interval", "采集间隔(秒)", "int", 30,
-                  help="服务端多久采一次设备指标(本机直读 / SSH 拉)。想更实时就调小。"
+                  help="服务端多久采一次本机直读(local)设备指标。想更实时就调小。"
                        "注:push 设备的上报间隔由目标机 agent 自己定,不受此值控制。"),
             Field("offline_after", "离线判定(秒)", "int", 180,
                   help="push 设备超过这么久没上报就判离线、从看板撤下(目标机关机/断网后自动消失)。"
-                       "建议 ≥ agent 上报间隔的 3 倍,避免偶发丢一两次就误判。本机直读/SSH 拉的设备不受影响。",
+                       "建议 ≥ agent 上报间隔的 3 倍,避免偶发丢一两次就误判。本机直读的设备不受影响。",
                   label_en="Offline after (s)",
                   help_en="A push device with no report for this many seconds is treated as offline and "
                           "dropped from the dashboard (so it disappears after the machine powers off / "
@@ -302,8 +390,11 @@ SCHEMA: list = [
         key="display", label="页面与风格", page=None,
         help="启用哪些页、轮播顺序、用哪套风格。留空=按数据源自动决定。",
         fields=[
-            Field("pages", "启用页面", "str_list", default=[],
-                  help="留空则按已配置的数据源自动启用。可选:首页、AI 用量、设备监控、智能家居、3D 打印机。"),
+            Field("pages", "页面顺序", "str_list", default=[],
+                  label_en="Page order",
+                  help="用 ↑/↓ 调整看板翻页顺序。配了数据源的页都会按此顺序显示;没配的自动跳过。",
+                  help_en="Reorder dashboard pages with ↑/↓. Every page with a configured data source "
+                          "shows in this order; unconfigured pages are skipped."),
             Field("style_mode", "风格模式", "enum", "fixed",
                   options=[("fixed", "固定一套"), ("daily_random", "每日随机")]),
             Field("style", "风格", "str", "style_a"),
@@ -327,7 +418,9 @@ def default_config() -> dict:
         d = {}
         for f in sec.fields:
             if f.type == "module_list":
-                d[f.key] = []           # 列表默认空
+                # 套用字段自带的默认列表(如 news.feeds 预置 AIHOT,无需凭据即默认开);
+                # 未设默认的(设备/下载器/HA 实体)为空。复制每项,避免多配置共享同一可变默认对象。
+                d[f.key] = [dict(x) for x in f.default] if isinstance(f.default, list) else []
             elif f.secret:
                 d[f.key] = ""           # 凭据默认空
             else:
@@ -360,6 +453,12 @@ def enabled_modules(config: dict) -> dict:
         if sec.key == "ha_page":            # 同 devices:列表非空即启用(选了实体才出 ha 页)
             out[sec.key] = len(secd.get("entities", []) or []) > 0
             continue
+        if sec.key == "news":               # 同 ha_page:订阅源列表非空即启用
+            out[sec.key] = len(secd.get("feeds", []) or []) > 0
+            continue
+        if sec.key == "downloaders":        # 同 ha_page:下载器列表非空即启用
+            out[sec.key] = len(secd.get("clients", []) or []) > 0
+            continue
         if not sec.enable_when:
             out[sec.key] = True     # 无启用条件的模块(server/display)恒启用
             continue
@@ -381,10 +480,16 @@ def active_pages(config: dict) -> list:
         "device": enabled.get("devices"),
         "ha": enabled.get("ha_page") and ha_ready,      # 选了实体 + HA 地址/令牌都配好,才出 ha 页
         "printer": enabled.get("printer") and ha_ready, # 打印机也经 HA,同理依赖 HA 有效
+        "news": enabled.get("news"),                    # 订阅源非空即出页(无凭据依赖)
+        "download": enabled.get("downloaders"),         # 下载器列表非空即出页
+        "music": enabled.get("music"),                  # 启用即出页(空状态也显示,无外部凭据依赖)
     }
-    default_order = ["home", "ai", "device", "ha", "printer"]
+    default_order = ["home", "ai", "news", "music", "download", "device", "ha", "printer"]
     chosen = config.get("display", {}).get("pages") or []
-    order = chosen if chosen else default_order
+    base = chosen if chosen else default_order
+    # 补上 base 没列、但已就绪的页(自定义顺序后新配的数据源页不致凭空消失);
+    # 这样 display.pages 是"顺序偏好"而非"白名单",配了数据源的页一定显示(诚实降级)。
+    order = list(base) + [p for p in default_order if p not in base]
     return [p for p in order if page_ready.get(p)]
 
 

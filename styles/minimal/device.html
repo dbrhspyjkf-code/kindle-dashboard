@@ -31,5 +31,5 @@
   <div class="empty">{{ t.device_empty }}</div>
 {% endif %}
 </div>
-<div class="foot"><span>{{ t.foot_updated }} <span class="tnum">{{ time_hm }}</span></span><span>{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<span class="tnum">{{ battery.level }}%</span></span><span>{{ t.foot_page_device }} · 04 / 05</span></div>
+<div class="foot"><span>{{ t.foot_updated }} <span class="tnum">{{ time_hm }}</span></span><span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}<span class="tnum">{{ battery.level }}%</span>{% endif %}</span><span>{{ t.foot_page_device }} · {{ "%02d"|format(page_no) }} / {{ "%02d"|format(page_total) }}</span></div>
 </body></html>

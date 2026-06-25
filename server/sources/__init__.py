@@ -5,5 +5,5 @@
   - 未配置 / 未启用 / 采集失败 → 返回 None(诚实降级,绝不抛到主循环)。
 主循环:for src in SOURCES: cache.update(src.collect(cfg) or {})
 
-设备监控(devices)走单独路径:本机直读/SSH 拉在 metrics.py,远端推由 API 接收。
+设备监控(devices)走单独路径:本机直读在 metrics.py,远端推由 API 接收。
 """

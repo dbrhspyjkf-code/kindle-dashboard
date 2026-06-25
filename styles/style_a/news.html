@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* news 页:自适应填充的「AI 热点」摘要。短讯多并、长文缩字铺满(引擎见 shared/news_fit)。
+   层次靠字号/字重/留白分(e-ink 不靠颜色):来源时间(小灰)→ 标题(宋体大粗,焦点)→ 正文 → 话题 chip。 */
+.news-fit{flex:1;min-height:0;overflow:hidden;--news-fs:17px;display:flex;flex-direction:column;}
+.nitem{padding:12px 0 13px;border-top:1px solid #e0e0e0;flex-shrink:0;}
+.nitem:first-child{border-top:none;padding-top:2px;}
+.nmeta{display:flex;align-items:baseline;gap:8px;font-size:11px;font-weight:700;
+  letter-spacing:.2px;color:var(--ink3);margin-bottom:6px;white-space:nowrap;}
+.nmeta .src{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;max-width:60%;}
+.nmeta .dot{color:var(--ink4);}
+.nmeta .when{color:var(--ink3);font-weight:600;}
+.nmeta .cat{margin-left:auto;flex-shrink:0;border:1px solid var(--ink3);border-radius:3px;
+  padding:1px 7px;font-size:10px;color:var(--ink2);letter-spacing:.3px;}
+/* 标题:衬线(思源宋体,渲染机已装)——报纸/杂志感;焦点层 */
+.nt{font-family:'Noto Serif CJK SC','Songti SC',serif;font-size:22px;font-weight:700;
+  line-height:1.26;letter-spacing:-.2px;color:var(--ink);margin-bottom:7px;}
+.nb{font-size:var(--news-fs);line-height:1.62;color:var(--ink2);font-weight:400;}
+.news-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink3);}
+.news-empty .big{font-size:30px;font-weight:800;color:var(--ink);margin-bottom:8px;}
+</style></head><body>
+{%- set items = news.entries if news else [] -%}
+<div class="masthead">
+  <div><div class="kicker">{{ t.news_kicker }}</div><div class="title">{{ news.title }}</div></div>
+  <div class="meta">{{ now }}</div>
+</div>
+{% if items %}
+<div class="news-fit" data-news-fit>
+  {% for it in items %}
+  <div class="nitem" data-news-item>
+    <div class="nmeta">
+      {% if it.source %}<span class="src">{{ it.source }}</span>{% endif %}
+      {% if it.when %}<span class="dot">·</span><span class="when">{{ it.when }}</span>{% endif %}
+      {% if it.category %}<span class="cat">{{ it.category }}</span>{% endif %}
+    </div>
+    <div class="nt">{{ it.title }}</div>
+    {% if it.summary %}<div class="nb">{{ it.summary }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="main"><div class="news-empty"><div class="big">{{ t.news_empty }}</div><div>{{ t.news_empty_hint }}</div></div></div>
+{% endif %}
+<div class="footer">
+  <span>{{ t.foot_updated }} {{ time_hm }}</span>
+  <span>{% if news.total %}{{ news.index }} / {{ news.total }} {{ t.news_unit }}{% endif %}</span>
+  <span>{% if battery.has %}{% if battery.charging %}{{ t.foot_charging }} {% else %}{{ t.foot_battery }} {% endif %}{{ battery.level }}%</span>{% endif %}
+  <span>{{ page_no }} / {{ page_total }}</span>
+</div>
+{% include 'shared/news_fit.html' %}
+</body></html>
