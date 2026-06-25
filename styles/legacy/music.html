@@ -53,6 +53,48 @@
           </div>
         </div>
 
+        {% if m.has_lyrics %}
+        {# 歌词(底部两排次要卡腾出的位置):3 行,JS 按播放进度本地丝滑滚动(纯 ES5,4.2 能跑)。
+           外壳 runFragmentScripts() 在每次轮询换页后重跑本脚本;脚本自清理 window.__mtick 防累积。 #}
+        {# table-cell + vertical-align:middle = 4.2 老 WebKit 支持的垂直居中(不用 flex);3 行在卡片区域内居中 #}
+        <div class="card-soft" style="height:160px;border:1px solid #d2cec5;background:#f5f1e8;padding:0 14px;overflow:hidden;margin-top:12px;display:table;width:100%;">
+          <div style="display:table-cell;vertical-align:middle;">
+            <div data-ly-prev style="font-size:16px;line-height:1.34;color:#7a766c;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"></div>
+            <div data-ly-cur style="font-size:25px;line-height:1.3;font-weight:800;color:#151515;margin-top:6px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:break-all;"></div>
+            <div data-ly-next style="font-size:16px;line-height:1.34;color:#7a766c;margin-top:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"></div>
+          </div>
+        </div>
+        <script>
+        (function(){
+          if (window.__mtick) { clearInterval(window.__mtick); window.__mtick = null; }
+          var lyrics = {{ m.lyrics|tojson }};
+          var playing = {{ 'true' if m.state == 'playing' else 'false' }};
+          var duration = {{ m.duration or 0 }};
+          var position = {{ m.position or 0 }};
+          var sampledAt = {{ m.sampled_at or 0 }};
+          var lp = document.querySelector("[data-ly-prev]");
+          var lc = document.querySelector("[data-ly-cur]");
+          var ln = document.querySelector("[data-ly-next]");
+          if (!lc || !lyrics.length) { return; }
+          var delta = sampledAt > 0 ? (new Date().getTime()/1000 - sampledAt) : 0;
+          if (!playing || Math.abs(delta) > 300) { delta = 0; }
+          var started = new Date().getTime()/1000 - position - delta, last = -2;
+          function idxAt(p){ var lo=0, hi=lyrics.length-1, a=-1; while(lo<=hi){ var mid=(lo+hi)>>1; if(lyrics[mid].t<=p){a=mid;lo=mid+1;}else{hi=mid-1;} } return a; }
+          function tick(){
+            var p = playing ? (new Date().getTime()/1000 - started) : position;
+            if (duration>0 && p>duration) { p = duration; }
+            var i = idxAt(p);
+            if (i === last) { return; }
+            last = i;
+            lp.textContent = i>0 ? lyrics[i-1].text : "";
+            lc.textContent = i>=0 ? lyrics[i].text : lyrics[0].text;
+            ln.textContent = (i+1<lyrics.length) ? lyrics[i+1].text : "";
+          }
+          tick();
+          if (playing) { window.__mtick = setInterval(tick, 1000); }
+        })();
+        </script>
+        {% else %}
         <div class="clear" style="margin-top:12px;">
           <div class="card-soft" style="float:left;width:48%;height:70px;margin-right:4%;border:1px solid #d2cec5;background:#f5f1e8;padding:9px 11px;overflow:hidden;">
             <div class="label-sm">{{ t.music_shuffle }}</div>
@@ -74,6 +116,7 @@
             <div class="stat-med tnum ell" style="margin-top:5px;">{% if m.track_count %}{{ m.track_number }} / {{ m.track_count }}{% else %}--{% endif %}</div>
           </div>
         </div>
+        {% endif %}
       </div>
     </div>
   </div>

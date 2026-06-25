@@ -337,6 +337,20 @@ function trimOverflow() {
   }
 }
 
+/* —— 换页后执行片段内 <script>(innerHTML 不会自动跑;音乐页歌词滚动靠它)。
+   纯 ES5;只有带脚本的片段(音乐页)受影响,其余页无 <script> 即空操作。
+   脚本自身负责自清理上一轮定时器(window.__mtick),避免轮询累积。 */
+function runFragmentScripts() {
+  if (!content.getElementsByTagName) return;
+  var list = content.getElementsByTagName("script"), arr = [], i;
+  for (i = 0; i < list.length; i++) { arr.push(list[i]); }
+  for (i = 0; i < arr.length; i++) {
+    var o = arr[i], s = document.createElement("script");
+    if (o.src) { s.src = o.src; } else { s.text = o.text; }
+    o.parentNode.replaceChild(s, o);
+  }
+}
+
 /* —— 取单页片段(target=legacy 的 HTML)—— */
 var loading = false;
 function loadPage(key, swap) {
@@ -350,6 +364,7 @@ function loadPage(key, swap) {
     loading = false;
     if (xhr.status >= 200 && xhr.status < 300) {
       content.innerHTML = xhr.responseText;   /* 片段用外壳 head 的共享类;轮询只换这里 */
+      runFragmentScripts();                    /* innerHTML 不跑 <script>;手动重跑(音乐页歌词滚动靠它)*/
       trimOverflow();                          /* 自适应:news 等只留完整放得下的条目 */
       setOnline(true);
     } else {
