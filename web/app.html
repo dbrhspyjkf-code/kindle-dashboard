@@ -112,7 +112,10 @@ function withTok(url) { return tok ? (url + (url.indexOf("?") < 0 ? "?" : "&") +
 //      看板背景色填充(见 loadPage 的 onload)。不按屏比重排内容 → 任意分辨率/比例都是同一套
 //      验证过的布局,零溢出、零适配,一劳永逸。----
 function fit() {
-  var sx = window.innerWidth / 800, sy = window.innerHeight / 600;
+  // iPad/iOS Safari 的 innerHeight 含底部工具栏/安全区(比真正可见区大),据它缩放会把页脚顶到不可见区被切;
+  // visualViewport 给的是实际可见尺寸,优先用它(其它平台无副作用:Android kiosk=整屏、桌面≈innerHeight)。
+  var vp = window.visualViewport;
+  var sx = ((vp && vp.width) || window.innerWidth) / 800, sy = ((vp && vp.height) || window.innerHeight) / 600;
   var s = Math.min(sx, sy);                       // 等比基准:高度方向填满
   // 横向在等比基础上最多拉伸 STRETCH 倍去吃掉留白(画面略扁、内容布局不变);非 4:3 屏的留白与变形折中。
   // 1.2 = 实测 16:9 上留白(~5%/侧)和横向变形(20%)都可接受(用户拍板 2026-06-24);剩余留白由看板背景色填充。
@@ -122,6 +125,7 @@ function fit() {
 }
 window.addEventListener("resize", fit);
 window.addEventListener("orientationchange", fit);
+if (window.visualViewport) window.visualViewport.addEventListener("resize", fit);
 
 // ---- 重连横幅 / toast ----
 var online = true;
