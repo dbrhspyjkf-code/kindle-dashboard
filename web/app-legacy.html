@@ -3,421 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <title>墨水桌面看板 · Legacy</title>
 <style>
-/* ============================================================================
-   老系统(安卓 4.x 古董 WebKit)降级活页外壳 —— 浅色 editorial(镜像默认主题 style_a)。
-   ★布局原语(2026-06-24 第二次返工,改用 4.2 真机已验证的 panel-legacy 同款):
-     - **撑满/分栏不靠 -webkit-box 老式 flexbox**(2012 AOSP WebKit 上不可靠:格子不等大、填不满,
-       桌面 Chrome 却正常 → 误判过)。改用:**绝对定位定高骨架 + float + 显式百分比宽/高 + height:100%**。
-     - 定高链根:.main 用绝对定位(top/bottom 算出定 px 高)。
-     - 4.2 真机继续暴露出「float 百分比列 + table height:100%」会按内容最小宽度收缩,
-       所以承重区域改为固定 CSS 像素坐标(面向 1280×800/213dpi:约 960 CSS px 宽)。
-     - 网格:行/格显式 px 宽高 + float,不用百分比高度承重。
-     - 柱图/底部锚定:position:absolute(% 高度相对定高父级,可靠)。
-     - -webkit-box **只用于 -webkit-line-clamp**(多行省略,4.2 支持)。
-     - 零 CSS 变量、零 ES6;共享样式全在本外壳 head(片段经 innerHTML 注入,不解析片段内 <style>)。
-   色调参考「屏幕监测」panel-legacy:暖米灰底 #ece8de、卡片 #f5f1e8、主字 #151515,
-   次级字 #555/#666/#888。比纯白省眼、比深黑更适合老 LCD 低亮度常亮。
-   ============================================================================ */
-*{margin:0;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box;max-height:999999px;}
-html,body{width:100%;height:100%;background:#ece8de;color:#151515;-webkit-text-size-adjust:none;
-  font-family:'Noto Sans CJK SC','Noto Sans SC','PingFang SC','Microsoft YaHei','Droid Sans Fallback',sans-serif;
-  font-size:14px;line-height:1.4;}
-body{overflow:hidden;}
-.clear:after{content:"";display:block;clear:both;}
-.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
-
-/* 斜线填充(hatch);-webkit- 前缀,4.2 渲不出回退浅灰 */
-.hatch{background:#d2cec5;background-image:-webkit-repeating-linear-gradient(45deg,#151515 0,#151515 2px,#f5f1e8 2px,#f5f1e8 4px);
-  background-image:repeating-linear-gradient(45deg,#151515 0,#151515 2px,#f5f1e8 2px,#f5f1e8 4px);}
-.hatch-b{background:#d2cec5;background-image:-webkit-repeating-linear-gradient(-45deg,#555 0,#555 1px,#f5f1e8 1px,#f5f1e8 5px);
-  background-image:repeating-linear-gradient(-45deg,#555 0,#555 1px,#f5f1e8 1px,#f5f1e8 5px);}
-
-/* ============================ 骨架:绝对定位三段(main 定高)============================ */
-.page{position:absolute;left:0;right:0;top:0;bottom:0;}
-.mast{position:absolute;left:20px;right:20px;top:14px;height:46px;border-bottom:2.5px solid #151515;overflow:hidden;}
-.main{position:absolute;left:20px;right:20px;top:68px;bottom:30px;overflow:hidden;}
-.foot{position:absolute;left:20px;right:20px;bottom:8px;height:17px;border-top:1px solid rgba(0,0,0,.15);padding-top:5px;
-  font-size:10px;color:#888;font-weight:600;letter-spacing:1px;overflow:hidden;}
-.foot .rt{float:right;}
-
-/* 报头内容 */
-.mast .meta{float:right;text-align:right;font-size:12px;color:#555;font-weight:600;line-height:1.35;padding-top:3px;}
-.kicker{font-size:10px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:2.5px;margin-bottom:2px;}
-.title{font-size:24px;font-weight:800;letter-spacing:0;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-
-/* 两栏旧辅助:只保留给非承重小结构;首页/AI/打印机走下面的固定坐标布局。 */
-.cols{height:100%;}
-.cols:after{content:"";display:block;clear:both;}
-.cL{float:left;height:100%;overflow:hidden;}
-.cR{float:left;height:100%;overflow:hidden;}
-.vsep{border-right:1px solid rgba(0,0,0,.15);}
-.rule{height:1px;background:rgba(0,0,0,.15);margin:11px 0;}
-
-/* 固定坐标承重布局:避免 4.2 WebKit 把百分比/table 布局收缩成内容宽度。 */
-.abscols{position:relative;height:100%;overflow:hidden;}
-.acol{position:absolute;top:0;bottom:0;overflow:hidden;}
-.home-l{left:0;width:420px;padding-right:18px;border-right:1px solid rgba(0,0,0,.15);}
-.home-r{left:448px;right:0;}
-.home-month{position:absolute;left:0;right:18px;top:0;height:24px;}
-.home-calbox{position:absolute;left:0;right:18px;top:28px;bottom:0;}
-.home-calbox .cal{position:absolute;left:0;top:0;width:100%;height:100%;}
-.ai-l{left:0;width:265px;padding-right:16px;border-right:1px solid rgba(0,0,0,.15);}
-.ai-r{left:292px;right:0;}
-.ai-cost{position:absolute;left:0;right:16px;bottom:0;border-top:2px solid #151515;padding-top:10px;}
-.ai-chartbox{position:absolute;left:0;right:0;top:112px;bottom:24px;}
-.ai-legendbox{position:absolute;left:0;right:0;bottom:0;height:18px;overflow:hidden;}
-.ai-full{position:relative;height:100%;}
-.ai-full-chart{position:absolute;left:0;right:0;top:25px;bottom:58px;}
-.ai-full-legend{position:absolute;left:0;right:0;bottom:34px;height:18px;overflow:hidden;}
-.ai-full-cost{position:absolute;left:0;right:0;bottom:0;border-top:2px solid #151515;padding-top:8px;}
-.printer-l{left:0;width:350px;padding-right:18px;border-right:1px solid rgba(0,0,0,.15);}
-.printer-r{left:378px;right:0;}
-.empty-box.printer-empty{padding-top:118px;}
-.empty-box.printer-empty .big{font-size:32px;margin-bottom:8px;}
-.printer-temp-line{margin-top:14px;font-size:14px;color:#555;font-weight:700;}
-
-/* 网格(HA/device):模板写入显式 px 宽高;这里仅负责 float/内边距。 */
-.grid{height:470px;overflow:hidden;}
-.grow{width:100%;}
-.grow:after{content:"";display:block;clear:both;}
-.gcell{float:left;padding:4px;}
-.gcell > .card, .gcell > .tile{height:100%;}
-
-/* 区块标签 / 文本层级 */
-.slabel{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#666;margin-bottom:8px;}
-.slabel .aux{float:right;letter-spacing:0;font-weight:600;color:#555;text-transform:none;font-size:11px;}
-.stat-hero{font-size:56px;font-weight:800;line-height:.9;letter-spacing:0;}
-.stat-big{font-size:31px;font-weight:800;letter-spacing:0;}
-.stat-med{font-size:21px;font-weight:700;}
-.label{font-size:12px;color:#666;font-weight:600;}
-.label-sm{font-size:10px;color:#666;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
-.ink2{color:#555;}.ink3{color:#666;}.ink4{color:#888;}
-.accent{color:#8b0000;}
-.ell{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-
-/* 卡片 / 进度条 */
-.card{border:1.5px solid rgba(23,23,23,.45);-webkit-border-radius:3px;border-radius:3px;padding:11px 13px;background:#f5f1e8;}
-.card-soft{background:#f5f1e8;-webkit-border-radius:3px;border-radius:3px;padding:11px 13px;}
-.bar{height:11px;background:#d2cec5;-webkit-border-radius:1px;border-radius:1px;overflow:hidden;}
-.bar i{display:block;height:100%;background:#151515;}
-.bar.thin{height:7px;}
-.bar.thick{height:15px;}
-
-/* 行内「右值 + 左文省略」float 模式 */
-.lv{padding:5px 0;border-bottom:1px solid rgba(0,0,0,.12);}
-.lv .rt{float:right;margin-left:10px;font-weight:600;}
-.lv .lt{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-
-/* 居中空态 */
-.empty-box{height:100%;text-align:center;padding-top:34%;color:#666;}
-.empty-box .big{font-size:28px;font-weight:800;color:#151515;margin-bottom:8px;}
-
-/* 轻量表格辅助:只给下载等非承重区域用。首页/AI 已改固定坐标。 */
-.fcol{width:100%;height:100%;border-collapse:collapse;}
-.fcol td{vertical-align:top;}
-.fcfill{height:100%;}
-.lcap{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#666;padding-bottom:7px;}
-
-/* ============================ HOME 日历 ============================ */
-.cal{width:100%;height:100%;border-collapse:collapse;table-layout:fixed;}
-.cal th{font-size:10px;color:#666;font-weight:700;padding:2px 0 6px;letter-spacing:1px;border-bottom:1.5px solid #151515;}
-.cal th.we{color:#888;}
-.cal td{text-align:center;vertical-align:middle;border:1px solid rgba(0,0,0,.10);}
-.cal .cd{font-size:16px;font-weight:700;line-height:1.1;}
-.cal .cl{font-size:9px;color:#888;font-weight:500;}
-.cal td.today{background:#d2cec5;background-image:-webkit-repeating-linear-gradient(45deg,#151515 0,#151515 2px,#f5f1e8 2px,#f5f1e8 4px);
-  background-image:repeating-linear-gradient(45deg,#151515 0,#151515 2px,#f5f1e8 2px,#f5f1e8 4px);}
-.cal td.today .cd{color:#151515;font-weight:800;background:#f5f1e8;display:inline-block;padding:1px 6px;-webkit-border-radius:2px;border-radius:2px;}
-.cal td.we .cd{color:#666;}
-.cal td.hol .cl{color:#151515;font-weight:700;}
-.wx-temp{font-size:58px;font-weight:800;letter-spacing:0;line-height:.85;}
-.wx-cond{font-size:21px;font-weight:700;margin-top:5px;}
-.wx-right{float:right;text-align:right;font-size:12px;color:#666;font-weight:600;line-height:1.8;}
-.wx-range{margin-top:11px;font-size:14px;font-weight:700;}
-.wx-range .lo{color:#666;font-weight:600;font-size:12px;}
-.grp{font-size:9px;font-weight:700;letter-spacing:1.5px;color:#666;text-transform:uppercase;margin:10px 0 2px;}
-.todo .grp:first-child{margin-top:0;}
-
-/* ============================ HA 瓷砖(顶图标盘 + 底部 absolute 锚定值)============================ */
-.tile{position:relative;border:1px solid #d2cec5;-webkit-border-radius:5px;border-radius:5px;padding:10px 11px;overflow:hidden;background:#f5f1e8;}
-.tile.on{border:1.5px solid #151515;}
-.tile .thead{height:40px;}
-.disc{float:left;width:36px;height:36px;-webkit-border-radius:50%;border-radius:50%;border:1.5px solid #666;text-align:center;background:#ece8de;}
-.tile.on .disc{background:#151515;border-color:#151515;}
-.disc .ic{display:inline-block;width:20px;height:20px;margin-top:6px;color:#555;}
-.tile.on .disc .ic{color:#f5f1e8;}
-.disc .ic svg{width:100%;height:100%;display:block;}
-.onmark{float:right;font-size:9px;color:#151515;line-height:1;}
-.tbody{position:absolute;left:11px;right:11px;bottom:10px;}
-.tnm{font-size:11px;font-weight:600;color:#666;line-height:1.15;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tile.on .tnm{color:#555;}
-.tval{font-size:23px;font-weight:800;letter-spacing:0;line-height:1;color:#151515;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tval .u{font-size:12px;font-weight:600;color:#666;letter-spacing:0;margin-left:2px;}
-.tsub{font-size:10px;color:#666;font-weight:600;margin-top:3px;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-
-/* ============================ DEVICE 卡 ============================ */
-.dev-head{margin-bottom:10px;}
-.dev-head .nm{display:block;font-size:20px;font-weight:800;overflow:hidden;}
-.dev-head .st{float:right;font-size:11px;color:#666;font-weight:600;padding-top:8px;}
-.mrow{margin-bottom:9px;}
-.mrow .top{margin-bottom:4px;}
-.mrow .k{font-size:13px;font-weight:700;}
-.mrow .v{float:right;font-size:15px;font-weight:800;}
-.mrow .v small{font-size:10px;color:#666;font-weight:600;}
-.io-line{font-size:11px;color:#555;font-weight:600;margin:7px 0;}
-.io-line span{display:block;margin-bottom:4px;}
-.vol{margin-bottom:6px;}
-.vol .k{font-size:12px;font-weight:700;}
-.vol .v{float:right;font-size:10px;color:#666;font-weight:600;}
-
-/* ============================ AI(配额 + 7 天柱图;柱图 position:absolute)============================ */
-.quota{margin-bottom:11px;}
-.quota .qname{font-size:14px;font-weight:700;}
-.quota .qpct{float:right;font-size:20px;font-weight:800;}
-.quota .qreset{float:right;font-size:10px;color:#666;font-weight:600;margin:6px 0 0 8px;}
-.tok-row{margin-top:9px;}
-.tok-row:after{content:"";display:block;clear:both;}
-.tok-c{float:left;width:33.33%;padding-right:8px;}
-.tok-c.last{padding-right:0;}
-.tok-c .box{border:1.5px solid #151515;-webkit-border-radius:2px;border-radius:2px;padding:8px 10px;overflow:hidden;background:#f5f1e8;}
-.tok-c .v{font-size:22px;font-weight:800;margin-top:3px;}
-.cost-bottom{border-top:2px solid #151515;padding-top:10px;}
-.cost-row{padding:3px 0;}
-.cost-row .lbl{font-size:12px;color:#666;font-weight:600;letter-spacing:1px;}
-.cost-row .amt{float:right;}
-/* 柱图:定高容器 + 每列 absolute 两段柱(% 高度相对定高列,可靠) */
-.chart{height:100%;position:relative;}
-.chart:after{content:"";display:block;clear:both;}
-.chart .cc{float:left;height:100%;position:relative;text-align:center;}
-.chart .v{position:absolute;left:0;right:0;top:0;font-size:10px;color:#666;font-weight:600;}
-.chart .barbox{position:absolute;left:18%;right:18%;top:15px;bottom:16px;}
-.chart .bseg{position:absolute;left:0;right:0;}
-.chart .x{position:absolute;left:0;right:0;bottom:0;font-size:10px;color:#555;font-weight:600;}
-.legend{margin-top:7px;font-size:11px;color:#555;font-weight:600;text-align:center;}
-.legend i{display:inline-block;width:15px;height:9px;margin:0 5px 0 14px;border:1px solid #151515;vertical-align:middle;}
-.legend i.first{margin-left:0;}
-
-/* ============================ NEWS ============================ */
-.nitem{padding:10px 0 11px;border-top:1px solid #d2cec5;}
-.nitem.first{border-top:none;padding-top:1px;}
-.nmeta{font-size:11px;font-weight:700;color:#666;margin-bottom:5px;}
-.nmeta .src{color:#555;}
-.nmeta .when{color:#666;font-weight:600;margin-left:6px;}
-.nmeta .cat{float:right;border:1px solid #666;-webkit-border-radius:3px;border-radius:3px;padding:1px 7px;font-size:10px;color:#555;}
-.ntitle{font-size:20px;font-weight:800;line-height:1.25;letter-spacing:0;color:#151515;margin-bottom:6px;}
-.nbody{font-size:14px;line-height:1.55;color:#555;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;}
-
-/* ============================ DOWNLOAD ============================ */
-.dl-band{margin-bottom:11px;}
-.dl-band:after{content:"";display:block;clear:both;}
-.dl-stat{float:left;width:20%;padding-right:8px;}
-.dl-stat.last{padding-right:0;}
-.dl-stat .box{border:1px solid #d2cec5;-webkit-border-radius:5px;border-radius:5px;padding:7px 10px;overflow:hidden;background:#f5f1e8;}
-.dl-stat .k{font-size:9px;font-weight:600;color:#666;letter-spacing:.3px;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dl-stat .v{font-size:19px;font-weight:800;letter-spacing:0;color:#151515;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dl-stat .v .u{font-size:11px;font-weight:600;color:#666;}
-.tor{border-top:1px solid #d2cec5;padding:7px 0 6px;}
-.tor.first{border-top:none;}
-.tor .nm{font-size:13px;font-weight:700;color:#151515;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tor .st{float:right;margin-left:10px;font-size:11px;font-weight:700;color:#666;}
-.tor.dling .st{color:#151515;}
-.tor .pwrap{margin:5px 0;}
-.tor .pct{float:right;margin-left:9px;font-size:11px;font-weight:700;color:#555;}
-.pbar{height:7px;background:#d2cec5;-webkit-border-radius:4px;border-radius:4px;overflow:hidden;}
-.pbar i{display:block;height:100%;background:#555;}
-.tor.dling .pbar i{background:#151515;}
-.tor .bot{font-size:11px;color:#666;font-weight:600;}
-.tor .bot span{margin-right:13px;}
-.tor .bot b{color:#555;font-weight:700;}
-
-/* ============================ PRINTER ============================ */
-.ring{width:180px;height:180px;margin:2px auto 12px;display:block;}
-.pr-mid{text-align:center;}
-.fname{font-size:16px;font-weight:800;letter-spacing:0;text-align:center;line-height:1.25;
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
-.pstate{display:inline-block;font-size:11px;font-weight:700;letter-spacing:1px;border:1.5px solid #151515;-webkit-border-radius:2px;border-radius:2px;padding:3px 12px;margin-top:9px;}
-.player{font-size:14px;color:#555;font-weight:700;margin-top:11px;text-align:center;}
-.peta{font-size:12px;color:#666;font-weight:600;margin-top:5px;text-align:center;}
-.temp-row:after{content:"";display:block;clear:both;}
-.temp{float:left;width:50%;}
-.temp.l2{padding-left:6px;}
-.temp.l1{padding-right:6px;}
-.temp .box{background:#ece8de;-webkit-border-radius:2px;border-radius:2px;padding:14px 16px;border:1px solid #d2cec5;}
-.temp .l{font-size:11px;color:#666;font-weight:700;letter-spacing:1px;margin-bottom:7px;}
-.temp .v{font-size:34px;font-weight:800;letter-spacing:0;}
-.temp .v .u{font-size:15px;color:#666;font-weight:600;}
-.temp .tgt{font-size:11px;color:#666;font-weight:600;margin-top:4px;}
-.meta-row{padding:9px 0;border-bottom:1px solid #d2cec5;}
-.meta-row .k{font-size:13px;color:#666;font-weight:600;}
-.meta-row .v{float:right;font-size:14px;font-weight:700;}
-
-/* ============================ 外壳框架 ============================ */
-#content{position:absolute;left:0;right:0;top:0;bottom:24px;overflow:hidden;}
+*{margin:0;padding:0;-webkit-box-sizing:border-box;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#ece8de;-webkit-text-size-adjust:none;}
+body{font-family:Arial,'Droid Sans Fallback',sans-serif;}
+/* 把整张高清图当作容器的【背景图】(background-size:contain 等比缩放居中),而不是贴一个 <img> 元素。
+   ——这样「图 + 四周留白」是同一个图层、同一个暖白底色 #ece8de:① 没有独立 <img> 元素的边缘,
+   彻底消除「图片和留白之间那两条竖线」(老 WebView 给 <img> 边缘留缝/缩放抗锯齿所致);
+   ② 留白与图底绝对无缝。纯 CSS 缩放居中,不靠 4.2 测不准的 JS。-webkit-background-size 4.x WebKit 支持。 */
+#wrap{position:absolute;left:0;right:0;top:0;bottom:0;overflow:hidden;background-color:#ece8de;
+  background-repeat:no-repeat;background-position:center center;
+  -webkit-background-size:contain;background-size:contain;}
 #banner{position:absolute;left:0;right:0;top:0;background:#8b0000;color:#f5f1e8;text-align:center;
-  padding:8px;font-size:13px;font-weight:700;display:none;z-index:30;
-  -webkit-box-shadow:0 2px 8px rgba(0,0,0,.2);box-shadow:0 2px 8px rgba(0,0,0,.2);}
+  padding:8px;font-size:13px;font-weight:700;display:none;z-index:10;}
 #banner.show{display:block;}
-#dots{position:absolute;left:0;right:0;bottom:0;height:24px;text-align:center;background:#f5f1e8;
-  border-top:1px solid #d2cec5;padding-top:8px;z-index:20;}
-#dots b{display:inline-block;width:7px;height:7px;margin:0 4px;background:#d2cec5;
-  -webkit-border-radius:5px;border-radius:5px;vertical-align:middle;}
-#dots b.on{background:#151515;width:18px;}
-#prevz,#nextz{position:absolute;top:0;bottom:24px;width:12%;z-index:15;}
-#prevz{left:0;} #nextz{right:0;}
 </style>
 </head>
 <body>
+<div id="wrap"></div>
 <div id="banner"></div>
-<div id="content"></div>
-<div id="prevz"></div>
-<div id="nextz"></div>
-<div id="dots"></div>
 
 <script>
-/* 纯 ES5(无 const/let/箭头/模板串/Promise/fetch):4.2 古董 WebKit 能跑。取数用 XMLHttpRequest。
-   外壳只做:XHR 拿片段 → #content.innerHTML → 翻页;失败保留上一帧不白屏。业务 HTML 全在服务端 Jinja。 */
+/* Android 4.2 legacy mode: the WebView is only a color photo frame.
+   All real layout is rendered server-side into /app-legacy/frame.png. */
 "use strict";
-var CFG = __APP_CONFIG__;   /* {token, interval, page_interval, pages:[{key,title}], default, texts:{reconnecting,no_pages}} */
+var CFG = __APP_CONFIG__;
 var T = CFG.texts || {};
 var tok = CFG.token || "";
-var pages = CFG.pages || [];
-var cur = CFG.default || (pages[0] && pages[0].key) || "home";
-
-var content = document.getElementById("content");
+var wrap = document.getElementById("wrap");
 var banner = document.getElementById("banner");
-var dotsBox = document.getElementById("dots");
+var online = true;
 
+/* 缩放+居中全交给 CSS(#wrap 的 background-size:contain)。服务端出 1600×1200 高清图,
+   pad 端 downscale 显示 → 锐利;不靠任何 JS 测视口(4.2 测不准)。 */
 function withTok(url) {
-  if (!tok) return url;
+  if (!tok) { return url; }
   return url + (url.indexOf("?") < 0 ? "?" : "&") + "token=" + encodeURIComponent(tok);
 }
-function curIndex() {
-  for (var i = 0; i < pages.length; i++) { if (pages[i].key === cur) return i; }
-  return 0;
-}
-function renderDots() {
-  if (pages.length <= 1) { dotsBox.style.display = "none"; return; }
-  var html = "", idx = curIndex();
-  for (var i = 0; i < pages.length; i++) { html += '<b class="' + (i === idx ? "on" : "") + '"></b>'; }
-  dotsBox.innerHTML = html;
-}
 
-/* —— 重连横幅(失败时显示,保留上一帧内容)—— */
-var online = true;
 function setOnline(ok) {
-  if (ok === online) return;
+  if (ok === online) { return; }
   online = ok;
-  if (ok) { banner.className = ""; }
-  else { banner.innerHTML = T.reconnecting || "连接中断,重连中…"; banner.className = "show"; }
-}
-
-/* —— 自适应裁剪(news 等):容器标 data-fit,只保留「完整放得下」的条目,放不下的整条隐藏。
-   纯 ES5 + offsetHeight,4.2 古董 WebKit 能跑。这样资讯页按内容长短显示 1~N 条、每条都完整、不半截。 */
-function trimOverflow() {
-  var box = content.querySelector ? content.querySelector("[data-fit]") : null;
-  if (!box) return;
-  var kids = box.children;
-  if (!kids || !kids.length) return;
-  var avail = box.clientHeight, used = 0, cutting = false;
-  for (var i = 0; i < kids.length; i++) {
-    kids[i].style.display = "";                  /* 先复位(轮询复用同一外壳)*/
-  }
-  for (var j = 0; j < kids.length; j++) {
-    var h = kids[j].offsetHeight;
-    if (cutting || (used > 0 && used + h > avail)) {
-      kids[j].style.display = "none";            /* 第一条放不下起,这条及之后全隐藏 */
-      cutting = true;
-    } else {
-      used += h;
-    }
+  if (ok) {
+    banner.className = "";
+  } else {
+    banner.innerHTML = T.reconnecting || "连接中断,重连中...";
+    banner.className = "show";
   }
 }
 
-/* —— 换页后执行片段内 <script>(innerHTML 不会自动跑;音乐页歌词滚动靠它)。
-   纯 ES5;只有带脚本的片段(音乐页)受影响,其余页无 <script> 即空操作。
-   脚本自身负责自清理上一轮定时器(window.__mtick),避免轮询累积。 */
-function runFragmentScripts() {
-  if (!content.getElementsByTagName) return;
-  var list = content.getElementsByTagName("script"), arr = [], i;
-  for (i = 0; i < list.length; i++) { arr.push(list[i]); }
-  for (i = 0; i < arr.length; i++) {
-    var o = arr[i], s = document.createElement("script");
-    if (o.src) { s.src = o.src; } else { s.text = o.text; }
-    o.parentNode.replaceChild(s, o);
-  }
-}
-
-/* —— 取单页片段(target=legacy 的 HTML)—— */
-var loading = false;
-function loadPage(key, swap) {
-  if (loading) return;
-  loading = true;
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", withTok("/app-legacy/page/" + key), true);
-  if (tok) { xhr.setRequestHeader("X-Access-Token", tok); }
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) return;
-    loading = false;
-    if (xhr.status >= 200 && xhr.status < 300) {
-      content.innerHTML = xhr.responseText;   /* 片段用外壳 head 的共享类;轮询只换这里 */
-      runFragmentScripts();                    /* innerHTML 不跑 <script>;手动重跑(音乐页歌词滚动靠它)*/
-      trimOverflow();                          /* 自适应:news 等只留完整放得下的条目 */
-      setOnline(true);
-    } else {
-      setOnline(false);                        /* 失败:保留上一帧,不清空(诚实降级)*/
-    }
+function refresh() {
+  var next = new Image();
+  next.onload = function () {
+    wrap.style.backgroundImage = "url('" + next.src + "')";   // 预加载完才换背景 → 不闪
+    setOnline(true);
   };
-  try { xhr.send(); } catch (e) { loading = false; setOnline(false); }
+  next.onerror = function () { setOnline(false); };
+  next.src = withTok("/app-legacy/frame.png?t=" + (new Date().getTime()));
 }
-
-/* —— 翻页:自动轮播(page_interval)+ 点两侧热区/指示点手动翻 —— */
-var rotateTimer = null;
-function scheduleRotate() {
-  if (rotateTimer) { clearTimeout(rotateTimer); }
-  if (pages.length <= 1) return;
-  var ms = Math.max(5, CFG.page_interval || 20) * 1000;
-  rotateTimer = setTimeout(function () { nextPage(); }, ms);
-}
-function gotoPage(key) {
-  cur = key;
-  renderDots();
-  loadPage(cur, true);
-  scheduleRotate();
-}
-function nextPage() { if (pages.length) gotoPage(pages[(curIndex() + 1) % pages.length].key); }
-function prevPage() { if (pages.length) gotoPage(pages[(curIndex() - 1 + pages.length) % pages.length].key); }
-
-document.getElementById("nextz").onclick = function () { nextPage(); };
-document.getElementById("prevz").onclick = function () { prevPage(); };
-dotsBox.onclick = function (e) {
-  var b = e.target;
-  if (b && b.tagName && b.tagName.toLowerCase() === "b") {
-    var bs = dotsBox.getElementsByTagName("b");
-    for (var i = 0; i < bs.length; i++) { if (bs[i] === b) { gotoPage(pages[i].key); return; } }
-  }
-};
-
-/* —— 数据轮询(news 跳过:停留期间不变,每轮到一次才换一批,避免中途跳条)—— */
-var NO_POLL = { news: 1 };
-function startPolling() {
-  var ms = Math.max(3, CFG.interval || 5) * 1000;
-  setInterval(function () { if (!NO_POLL[cur]) loadPage(cur, false); }, ms);
-}
-
-/* —— 启动 —— */
-if (pages.length) {
-  renderDots();
-  loadPage(cur, true);
-  scheduleRotate();
-  startPolling();
-} else {
-  content.innerHTML = '<div class="page"><div class="card" style="margin-top:40px">'
-    + (T.no_pages || "还没启用任何页面,请先在设置页配置数据源。") + "</div></div>";
-}
+refresh();
+setInterval(refresh, Math.max(3, CFG.interval || 5) * 1000);
 </script>
 </body>
 </html>

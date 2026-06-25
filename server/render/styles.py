@@ -69,6 +69,18 @@ html,body{ -webkit-tap-highlight-color:rgba(0,0,0,.06); }
   font-size:15px; line-height:1; font-weight:800; color:var(--a-accent); opacity:.5; pointer-events:none; }
 """
 
+# 安卓 4.x「图片相框」专用注入(target=legacy_photo):服务端渲成彩色 PNG 给老平板当相框。
+# 借用 static(非 android)版式 → 不渲点不了的控件/歌词、封面墙走 data URI(file:// 出图能渲);
+# 在此之上只做两件事:① 解除各风格为墨水屏写死的封面 grayscale → 还原彩色(pad 是彩色屏);
+# ② 把纯白底 #fff 换成暖白 #ece8de(与图片相框外壳留白同色,营造纸感,普通 LCD 上不冷白)。
+# 渲染由服务端 Chromium 执行(pad 只看图),故可放心用属性选择器等现代 CSS。**不碰 Kindle/android 路径。**
+LEGACY_PHOTO_CSS = """
+/* ==== 安卓4.x 图片相框(仅服务端出彩图;Kindle/手机版不含此段)==== */
+html,body{ background:#ece8de !important; }
+.cover,.cover-img,[class*="cover"] img,[class*="tile"] img,[class*="photo"] img,[class*="wall"] img{
+  -webkit-filter:saturate(1.06) contrast(1.02) !important; filter:saturate(1.06) contrast(1.02) !important; }
+"""
+
 
 # 内部模板集(不是可选的 Kindle 风格皮肤):不进风格选择器 / /api/styles / smoke 测试 / pick_style。
 # legacy = 安卓 4.x 古董 WebView 降级活页专用(float-CSS+ES5),只由 /app-legacy 经
@@ -156,6 +168,8 @@ def render_page(style: str, page_key: str, ctx: dict, d: str = None,
     css = read_css(style, d)
     if target == "android":     # 灰度版不动;活 HTML 追加触控彩色主题(贴风格的强调色)
         css += ANDROID_THEME.replace("__ACCENT__", ANDROID_ACCENTS.get(style, _DEFAULT_ACCENT))
+    elif target == "legacy_photo":   # 安卓4.x 图片相框:静态版式上还原彩色封面 + 暖白底(见 LEGACY_PHOTO_CSS)
+        css += LEGACY_PHOTO_CSS
     full["css"] = css
     lang = (ctx.get("lang") or "zh")
     strings = read_strings(style, d)
@@ -166,6 +180,7 @@ def render_page(style: str, page_key: str, ctx: dict, d: str = None,
         astr = ANDROID_STRINGS.get(lang) or ANDROID_STRINGS["zh"]
         full["t"] = {**ANDROID_STRINGS["zh"], **full["t"], **astr}
     full["target"] = target
+    full.setdefault("app_token", "")   # 动态版封面墙 <img> 用;静态/Kindle 渲染时为空(分支也不走它)
     return tpl.render(**full)
 
 

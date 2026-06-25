@@ -140,7 +140,7 @@
     <div style="width:760px;height:468px;overflow:hidden;padding-top:{{ top }}px;">
       {% for art in m.artwork_wall %}
       <div style="float:left;width:{{ size }}px;height:{{ size }}px;margin-left:{% if loop.index0 % cols == 0 %}{{ left }}px{% else %}{{ gap }}px{% endif %};margin-bottom:{{ gap }}px;border:1px solid #d2cec5;background:#f5f1e8;overflow:hidden;">
-        <img src="{{ art.url }}" alt="" style="display:block;width:100%;height:100%;border:0;">
+        <img src="{% if art.hash %}/music/artwork/{{ art.hash }}?token={{ app_token }}{% else %}{{ art.url }}{% endif %}" alt="" style="display:block;width:100%;height:100%;border:0;">
       </div>
       {% endfor %}
     </div>

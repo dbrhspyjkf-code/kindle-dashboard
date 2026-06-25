@@ -155,7 +155,7 @@
   <section class="idle-wall">
     {% if music.artwork_wall %}
     <div class="idle-grid wall-{{ music.artwork_wall_mode }}">
-      {% for art in music.artwork_wall %}<div class="idle-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+      {% for art in music.artwork_wall %}<div class="idle-tile"><img src="{% if target == 'android' and art.hash %}/music/artwork/{{ art.hash }}?token={{ app_token }}{% else %}{{ art.url }}{% endif %}" alt=""></div>{% endfor %}
     </div>
     {% else %}
     <div class="idle-empty"><div class="big">{{ t.music_title }}</div></div>

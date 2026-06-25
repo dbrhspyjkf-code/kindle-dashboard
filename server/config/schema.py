@@ -336,6 +336,20 @@ SCHEMA: list = [
                   help="每次封面墙最多抽取多少张缓存封面。实际数量受缓存中已有封面数量限制。",
                   label_en="Album wall covers",
                   help_en="Maximum cached covers sampled for each album wall."),
+            Field("artwork_pool_size", "渐换封面池(张)", "int", 40,
+                  help="手机/网页动态版封面墙渐换时,服务端在多大的封面池里挑替换(Apple TV 式)。"
+                       "池子要大于封面墙数量才会漂移;Kindle 静态版不受影响(每次整批重抽)。",
+                  label_en="Live wall pool size",
+                  help_en="On the live phone/web wall, the server cycles covers from a pool of this size (Apple-TV style). "
+                          "Must exceed the wall count to drift. The static Kindle wall is unaffected (it re-rolls the whole batch each render)."),
+            Field("artwork_swap_interval", "渐换间隔(秒)", "int", 4,
+                  help="手机/网页动态版封面墙每隔多少秒悄悄替换几张封面。Kindle 静态版不受影响。",
+                  label_en="Live wall swap interval (s)",
+                  help_en="How often (seconds) the live phone/web wall quietly swaps a few covers. The static Kindle wall is unaffected."),
+            Field("artwork_swap_max", "渐换每次最多换(张)", "int", 3,
+                  help="手机/网页动态版封面墙每次漂移最多替换几张(实际随机 1~该值)。Kindle 静态版不受影响。",
+                  label_en="Live wall covers per swap",
+                  help_en="Maximum covers swapped each drift on the live phone/web wall (actual is random 1..this). The static Kindle wall is unaffected."),
         ],
     ),
 

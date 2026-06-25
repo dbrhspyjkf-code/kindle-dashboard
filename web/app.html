@@ -3,6 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<script>
+/* 内核能力探测(兜 UA 判的漏:系统 5/6 但 WebView 从没更新 → 跑不了本页用的 CSS Grid)。
+   能跑 Grid 就留在活页 /app;跑不动(或探测异常)就自己跳图片相框 /app-legacy(透传 token)。
+   ?force=app 时尊重用户、不跳。放在最前、先于 CSS/JS,避免老内核先把活页渲崩。 */
+(function () {
+  try {
+    var qs = location.search || "";
+    if (qs.indexOf("force=app") >= 0) return;                                   // 用户强制 app
+    if (window.CSS && CSS.supports && CSS.supports("display", "grid")) return;  // 能跑 Grid → 留下
+  } catch (e) {}
+  var m = (location.search || "").match(/[?&]token=([^&]*)/);
+  location.replace("/app-legacy" + (m ? "?token=" + m[1] : ""));
+})();
+</script>
 <title>Kindle Dashboard · App</title>
 <style>
   /* 安卓 App 活 HTML 外壳:全屏看板(锁横屏铺满)+ 自动轮播 + 相册式滑动翻页 + 轮询/点击控件。
@@ -115,7 +129,16 @@ function fit() {
   // iPad/iOS Safari 的 innerHeight 含底部工具栏/安全区(比真正可见区大),据它缩放会把页脚顶到不可见区被切;
   // visualViewport 给的是实际可见尺寸,优先用它(其它平台无副作用:Android kiosk=整屏、桌面≈innerHeight)。
   var vp = window.visualViewport;
-  var sx = ((vp && vp.width) || window.innerWidth) / 800, sy = ((vp && vp.height) || window.innerHeight) / 600;
+  var iw = (vp && vp.width)  || window.innerWidth;
+  var ih = (vp && vp.height) || window.innerHeight;
+  // 承载层精确贴合「可见视口」:iPad 全屏下 CSS 的 100vh/inset:0 比真正可见区高,内容在过高的层里
+  // 居中会被顶下去、底部裁掉(顶部反多出空白)。用 visualViewport 的位置+尺寸把 #stagewrap 锁到可见区。
+  if (vp) {
+    var w = document.getElementById("stagewrap").style;
+    w.top = (vp.offsetTop || 0) + "px"; w.left = (vp.offsetLeft || 0) + "px";
+    w.width = iw + "px"; w.height = ih + "px"; w.right = "auto"; w.bottom = "auto";
+  }
+  var sx = iw / 800, sy = ih / 600;
   var s = Math.min(sx, sy);                       // 等比基准:高度方向填满
   // 横向在等比基础上最多拉伸 STRETCH 倍去吃掉留白(画面略扁、内容布局不变);非 4:3 屏的留白与变形折中。
   // 1.2 = 实测 16:9 上留白(~5%/侧)和横向变形(20%)都可接受(用户拍板 2026-06-24);剩余留白由看板背景色填充。
@@ -169,8 +192,13 @@ function loadPage(key, full) {
             d.body.style.overflow = "hidden";
             // 缩放后四周的留白用看板自身背景色填满(白底→白、深色→深),视觉填满、不留黑边
             var bg = getComputedStyle(d.body).backgroundColor;
-            if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent")
+            if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
               document.getElementById("stagewrap").style.background = bg;
+              // 整页底色也跟随看板底色:iPad 全屏时若 stagewrap 因安全区/视口高度没盖满,
+              // 露出的是看板底色而非默认深色 #111(消除"底部黑边")。
+              document.documentElement.style.background = bg;
+              document.body.style.background = bg;
+            }
           }
           d.addEventListener("click", onClick);
           attachSwipe(d);
@@ -449,6 +477,7 @@ function onArrowKey(e) {
     ctl.classList.toggle("fs", !!isFs());
     fit();                  // 进/退全屏窗口尺寸变了 → 重算缩放铺满
     setTimeout(fit, 150);   // 部分浏览器全屏后尺寸稍迟才稳定,再算一次
+    setTimeout(fit, 500);   // iOS Safari 全屏切换/安全区稳定更慢,再补一次
   }
   document.addEventListener("fullscreenchange", syncFs);
   document.addEventListener("webkitfullscreenchange", syncFs);

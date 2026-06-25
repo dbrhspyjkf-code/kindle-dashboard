@@ -90,7 +90,7 @@
 <div class="m-main m-idlewrap" aria-label="{{ t.music_idle_hint }}">
   {% if music.artwork_wall %}
   <div class="m-wall wall-{{ music.artwork_wall_mode }}" aria-hidden="true">
-    {% for art in music.artwork_wall %}<div class="m-tile"><img src="{{ art.url }}" alt=""></div>{% endfor %}
+    {% for art in music.artwork_wall %}<div class="m-tile"><img src="{% if target == 'android' and art.hash %}/music/artwork/{{ art.hash }}?token={{ app_token }}{% else %}{{ art.url }}{% endif %}" alt=""></div>{% endfor %}
   </div>
   {% else %}
   <div class="m-idle"><span class="x">{{ t.music_idle }}</span></div>

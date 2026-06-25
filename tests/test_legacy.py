@@ -1,6 +1,7 @@
 """安卓老系统兼容 —— 服务端 legacy 出口验证(施工图 docs/android-legacy-support-spec.md §2)。
-覆盖:三档 UA 自动分流(/app)、?force= 覆盖、token 透传、/app-legacy 外壳与单页片段、
-legacy 模板渲染与降级、legacy 不入风格选择器。用临时 config,不起服务、不触发采集/渲染线程。"""
+覆盖:三档 UA 自动分流(/app)、?force= 覆盖、token 透传、/app-legacy 图片相框出口、
+旧 /app-legacy-live 活页壳保留、legacy 模板渲染与降级、legacy 不入风格选择器。
+用临时 config,不起服务、不触发采集/渲染线程。"""
 import os
 import sys
 import tempfile
@@ -34,9 +35,10 @@ def test_classify_ua_three_tiers():
 
 
 def test_classify_modern_android_not_misrouted():
-    """现代安卓(双位数版本)不能被老安卓正则误判 —— Android 1X. 不匹配 [0-2]\\. / [34]\\.。"""
+    """现代安卓不能被老安卓正则误判。
+    重点:现代 Android WebView UA 常带 `Version/4.0`,不能因为这个降到 legacy。"""
     for v in ("10", "11", "12", "13", "14", "15"):
-        ua = f"Mozilla/5.0 (Linux; Android {v}; X) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36"
+        ua = f"Mozilla/5.0 (Linux; Android {v}; X) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120 Mobile Safari/537.36"
         assert _classify_ua(ua) == "app", v
 
 
@@ -76,11 +78,22 @@ def test_app_legacy_shell_served():
     r = client.get("/app-legacy")
     assert r.status_code == 200
     assert "__APP_CONFIG__" not in r.text       # 配置已注入
-    assert "XMLHttpRequest" in r.text           # ES5 取数(非 fetch)
-    assert "/app-legacy/page/" in r.text
+    assert "/app-legacy/frame.png" in r.text    # 默认走图片相框,老 WebView 只显示服务端 PNG
+    assert "/app-legacy/page/" not in r.text    # 不再让 4.2 WebView 承载业务布局
+    assert "background-size:contain" in r.text   # 图当背景图贴(无独立 <img> 元素边缘缝)
+    assert "backgroundImage" in r.text           # JS 轮询换的是容器背景图
     # 纯 ES5:不得含现代语法(箭头/const/fetch/模板串)
     for modern in ("=>", "const ", "let ", "fetch(", "`"):
         assert modern not in r.text, modern
+
+
+def test_app_legacy_live_shell_is_kept_for_debugging():
+    r = client.get("/app-legacy-live")
+    assert r.status_code == 200
+    assert "__APP_CONFIG__" not in r.text
+    assert "XMLHttpRequest" in r.text
+    assert "/app-legacy/page/" in r.text
+    assert "Legacy live HTML shell kept for reference and rollback" in r.text
 
 
 def test_app_legacy_shell_requires_token():
@@ -88,6 +101,10 @@ def test_app_legacy_shell_requires_token():
     try:
         assert client.get("/app-legacy").status_code == 401          # 绝不豁免
         assert client.get("/app-legacy?token=T0KEN").status_code == 200
+        assert client.get("/app-legacy-live").status_code == 401
+        assert client.get("/app-legacy-live?token=T0KEN").status_code == 200
+        assert client.get("/app-legacy/frame.png").status_code == 401
+        assert client.get("/app-legacy/frame.png?token=T0KEN").status_code == 200
         assert client.get("/app-legacy/page/home").status_code == 401
         assert client.get("/app-legacy/page/home?token=T0KEN").status_code == 200
     finally:
@@ -183,14 +200,14 @@ def test_legacy_printer_empty_state_has_dedicated_position():
 
 
 def test_app_legacy_shell_prioritizes_printer_empty_offset():
-    r = client.get("/app-legacy")
+    r = client.get("/app-legacy-live")
     assert r.status_code == 200
     assert ".empty-box.printer-empty{padding-top:118px;}" in r.text
 
 
-def test_app_legacy_uses_warm_reference_palette_not_dark_theme():
+def test_app_legacy_live_uses_warm_reference_palette_not_dark_theme():
     """legacy 真机主题走 panel-legacy 同款暖浅色,避免再回退成纯黑省电版。"""
-    shell = client.get("/app-legacy").text.lower()
+    shell = client.get("/app-legacy-live").text.lower()
     assert "#ece8de" in shell
     assert "#f5f1e8" in shell
     assert "#151515" in shell
@@ -208,6 +225,8 @@ def test_app_legacy_no_store_cache_header():
     """外壳含 <style>(legacy 主题 CSS),老 WebView 会缓存住旧外壳 → 改样式设备不更新。
     /app-legacy 与片段都必须 Cache-Control: no-store(真机踩过:暗色重设计上线后仍显示旧浅色版)。"""
     assert client.get("/app-legacy").headers.get("cache-control") == "no-store"
+    assert client.get("/app-legacy-live").headers.get("cache-control") == "no-store"
+    assert client.get("/app-legacy/frame.png").headers.get("cache-control") == "no-store"
     assert client.get("/app-legacy/page/home").headers.get("cache-control") == "no-store"
 
 

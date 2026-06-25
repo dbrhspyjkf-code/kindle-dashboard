@@ -102,6 +102,9 @@ music:
   lyrics_enabled: true       # 换歌自动联网查带时间轴歌词(手机/网页动态版滚动;Kindle 不显);查不到回退播放器
   artwork_cache_limit: 120   # 服务端最多缓存多少张历史专辑封面
   artwork_wall_count: 20     # 封面墙最多抽取多少张缓存封面
+  artwork_pool_size: 40      # 手机/网页动态版渐换封面墙的封面池大小(Apple TV 式);Kindle 静态版不受影响
+  artwork_swap_interval: 4   # 动态版封面墙每隔几秒悄悄换几张;Kindle 静态版不受影响
+  artwork_swap_max: 3        # 动态版封面墙每次漂移最多换几张(实际随机 1~该值)
 
 # 智能家居实体墙(经 Home Assistant)——选了实体才出这一页
 # 推荐用设置网页搜实体添加;手填示例(去掉注释填进 entities):

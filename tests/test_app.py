@@ -126,6 +126,89 @@ def test_music_artwork_wall_layout_tiers():
         assert len(ctx["music"]["artwork_wall"]) == size
 
 
+def test_music_artwork_http_endpoint():
+    """动态版封面墙用的 /music/artwork/<hash>:命中返回图 + 长缓存头;未知 hash → 404;令牌保护。"""
+    from server.app import cache
+    cache.pop("music", None)
+    raw = base64.b64encode(b"fake-jpeg-bytes-xyz").decode()
+    client.post("/api/music", json={
+        "has_track": True, "state": "playing", "sampled_at": 1000,
+        "position": 1, "duration": 200, "name": "Song", "artist": "Artist", "album": "Album",
+        "track_id": "track-art", "has_artwork": True,
+        "artwork_hash": "hash-http", "artwork_mime": "image/jpeg", "artwork_data": raw,
+    })
+    r = client.get("/music/artwork/hash-http")
+    assert r.status_code == 200
+    assert r.content == b"fake-jpeg-bytes-xyz"
+    assert r.headers.get("content-type") == "image/jpeg"
+    assert "immutable" in (r.headers.get("cache-control") or "")
+    assert client.get("/music/artwork/nope-not-a-hash").status_code == 404
+    # 路径穿越尝试:hash 精确匹配 + abspath 限定 → 拿不到任意文件
+    assert client.get("/music/artwork/..%2F..%2Fetc%2Fpasswd").status_code == 404
+    # 令牌保护:设了令牌而不带 → 挡住(封面接口不在豁免名单)
+    cm.get()["server"]["access_token"] = "T0KEN"
+    try:
+        assert client.get("/music/artwork/hash-http").status_code == 401
+        assert client.get("/music/artwork/hash-http?token=T0KEN").status_code == 200
+    finally:
+        cm.get()["server"]["access_token"] = ""
+
+
+def _seed_artwork(n):
+    """往封面索引塞 n 张假封面,返回它们的 hash 集合。"""
+    import os
+    from server.app import MUSIC_ARTWORK_DIR, _music_write_artwork_index
+    os.makedirs(MUSIC_ARTWORK_DIR, exist_ok=True)
+    items = []
+    for i in range(n):
+        fn = f"drift{i}.jpg"
+        with open(os.path.join(MUSIC_ARTWORK_DIR, fn), "wb") as f:
+            f.write(b"x" * 8)
+        items.append({"hash": f"d{i}", "path": fn, "mime": "image/jpeg",
+                      "last_seen": 100 + i, "album": "", "artist": ""})
+    _music_write_artwork_index(items)
+    return {f"d{i}" for i in range(n)}
+
+
+def test_dyn_wall_show_count_matches_layout_tiers():
+    """漂移层的显示数必须和布局档位(1/2/4/9/16/20 向下取)一致 —— 否则 5 张会被当 5 张漂移、实际只显示 4。"""
+    from server.app import _wall_show_count
+    for n, expect in [(0, 0), (1, 1), (2, 2), (3, 2), (4, 4), (5, 4), (8, 4),
+                      (9, 9), (15, 9), (16, 16), (19, 16), (20, 20), (40, 20)]:
+        assert _wall_show_count(n) == expect, n
+
+
+def test_dyn_wall_drift():
+    """动态版漂移墙:显示数按档位退档;有备用图→稳定换新图(含 5 张显示 4、第 5 张轮进来);
+    正好满档(无备用)→ 格子间对调、不重复显示。"""
+    from server.app import _dyn_wall_tiles, _DYN_WALL
+    cm.get().setdefault("music", {}).update(
+        {"artwork_wall_count": 20, "artwork_pool_size": 40,
+         "artwork_swap_interval": 4, "artwork_swap_max": 3})
+
+    # 5 张封面:档位退到显示 4,留 1 张备用 → 每次漂移必把那张备用换进来(用户问的场景)
+    pool5 = _seed_artwork(5)
+    _DYN_WALL["tiles"] = []
+    _DYN_WALL["ts"] = 0.0
+    t1 = [x["hash"] for x in _dyn_wall_tiles()]
+    assert len(t1) == 4 and len(set(t1)) == 4 and set(t1) <= pool5   # 显示 4(不是 5)
+    spare1 = (pool5 - set(t1)).pop()                                 # 当前没显示的那张
+    _DYN_WALL["ts"] = 0.0                                            # 强制到点
+    t2 = [x["hash"] for x in _dyn_wall_tiles()]
+    assert len(t2) == 4 and len(set(t2)) == 4
+    assert spare1 in set(t2)                                         # 备用那张被换进了显示区
+
+    # 正好 4 张:显示 4、无备用 → 对调位置,仍是这 4 张、无重复
+    pool4 = _seed_artwork(4)
+    _DYN_WALL["tiles"] = []
+    _DYN_WALL["ts"] = 0.0
+    t3 = [x["hash"] for x in _dyn_wall_tiles()]
+    assert set(t3) == pool4 and len(set(t3)) == 4
+    _DYN_WALL["ts"] = 0.0
+    t4 = [x["hash"] for x in _dyn_wall_tiles()]
+    assert set(t4) == pool4 and len(set(t4)) == 4                    # 不引入重复、不报错
+
+
 def test_music_artwork_cache_limit_is_bounded():
     """Music 封面缓存按配置保留最近 N 张,不会无限增长。"""
     from server.app import MUSIC_ARTWORK_DIR, _music_load_artwork_index, cache

@@ -233,7 +233,16 @@
 
 ## `music` —— 音乐播放(Apple Music / Music.app,Mac agent 推送)
 
-`has_track==False` → 空状态「当前无播放」:模板显占位框、**不显假进度条**(对标打印机页「无任务」)。**渲染目标分层**:静态目标(`target=kindle`/`legacy`、`/web-simple`)**不显** progress/position/递增时间,只显「当前是哪首歌」;动态目标(`target=android`)前端据 `position`+`duration`+`sampled_at` 自走进度条。`*_text` 字段全由 `build_context` 按 lang 产出,**模板别写死中文**。
+`has_track==False` → 空状态「当前无播放」:模板显占位框、**不显假进度条**(对标打印机页「无任务」)。**渲染目标分层**:
+- `target=kindle`(出图)/ `/web-simple`:**静态**,不显 progress/position/歌词,只显「当前是哪首歌」(Kindle 出图零回归红线)。
+- `target=android`(`/app`):前端据 `position`+`duration`+`sampled_at` 自走进度条 + **逐秒平滑滚动歌词**(JS 二分 `lyrics` 时间轴)。
+- **安卓 4.x(`/app-legacy`):图片相框模式**——不再用 `target=legacy` 那套 float-CSS 活页承载布局;改成服务端把 7 套风格渲成 **1600×1200 彩色高清 PNG**(`target=legacy_photo`:借 static 版式 + `styles.LEGACY_PHOTO_CSS` 解灰度还原彩色封面 + 暖白底 `#ece8de`;`/app-legacy/frame.png` 惰性按需渲、pad 端 downscale),老 WebView 当相框轮询显示,**所以没有进度条、不滚歌词**(图片不能滚)。旧的 `target=legacy` 花活页(含滚动歌词、`runFragmentScripts`)保留在回滚入口 `/app-legacy-live` + `styles/legacy/*`,默认不走。详见 `CLAUDE.md`「安卓 4.x 图片相框模式」节。
+
+**专辑封面墙屏保**(停播 / 暂停超 `pause_idle_after` → `idle_wall`):封面缓存在 `MUSIC_ARTWORK_DIR`(上限 `artwork_cache_limit`),`artwork_wall_count` 张铺成墙。刷新分两套出口:
+- **静态出图(`target=kindle` / `/web-simple` / 安卓 4.x 图片相框)**:`render_all`(及 legacy `_legacy_render_page`)每帧 `_music_artwork_wall()` **真随机重抽一批**(去掉旧的 5 分钟时间桶)→ 每次刷到屏保都是新的一组;封面内嵌 **data URI**(file:// 出图链路对 HTTP 图不稳)。安卓 4.x 图片相框走的就是这套(`_legacy_render_page` 出彩色高清图、封面墙仍 data URI),所以也是「整批变勤」、不是单张渐换。
+- **动态活页(`target=android`,即 `/app`)**:服务端维护一组「漂移墙」(`_dyn_wall_tiles`,全局 `_DYN_WALL`),每 `artwork_swap_interval` 秒随机替换 `1~artwork_swap_max` 张(Apple TV 式单张渐换;封面池 `artwork_pool_size`)。规则:池子 > 显示数 → 换上没显示过的新图;满铺(池子==显示数)→ 两格对调位置;只 1 张则静止。所有 `/app` 客户端轮询看到**同一组、同步漂移**;封面走 **HTTP 接口** `GET /music/artwork/<hash>?token=`(`Cache-Control: immutable` 长缓存 → 未变的瓦片命中浏览器缓存、不闪不重拉,只有换掉的几张真去拉新图)。**纯服务端漂移、活页零 JS**(避开 `/app` 每 `app_poll_interval` 秒 innerHTML 整体换 body 会重置客户端定时器的坑)。注:`_inject_dyn_wall` 也作用于 `/app-legacy/page`(回滚活页壳 `/app-legacy-live` 用),但默认 4.x 走图片相框、不经它。
+
+`*_text` 字段全由 `build_context` 按 lang 产出,**模板别写死中文**。
 
 | 字段 | 类型 | 例 | 说明 |
 |---|---|---|---|
@@ -247,5 +256,7 @@
 | `shuffle` / `shuffle_text` | bool / str | | 随机;`_text` 已本地化(随机开/关) |
 | `repeat` / `repeat_text` | str / str | `all` / `列表循环` | off/all/one;`_text` 已本地化 |
 | `artwork_url` | str | | 封面 URL;空=显占位框 |
+| `has_lyrics` | bool | | 是否查到带时间轴歌词(仅 android/legacy 动态目标显;Kindle 永不显) |
+| `lyrics` | list | `[{t,text}]` | 时间轴歌词,按 `t`(秒)升序;空=无歌词→回退普通播放器。源见 `server/sources/lyrics.py`(网易云优先+LRCLIB 兜底,专辑>歌手>时长选版本),换歌后台线程查、按 track_id 缓存,开关 `music.lyrics_enabled`(默认开) |
 
 > 完整字段(含 album_artist/composer/genre/year/track_number/loved/play_count 等可选项,及 state_since/paused_for/artwork_wall* 等屏保态字段)见 `server/render/contract.py` 的 `empty_music()`(逐字段注释,为权威定义)。字段名不用 dict 方法名。

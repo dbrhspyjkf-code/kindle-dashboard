@@ -163,9 +163,13 @@ def _maybe_fetch_lyrics(payload):
 
 RENDERED = {}            # {page_key: png bytes}
 RENDER_ORDER = []        # 当前轮播顺序
+LEGACY_FRAMES = {}       # 安卓 4.x 图片相框出口:{page_key: (800x600 彩色 png bytes, 渲染时刻)}
+                         # 惰性按需:只在真有老安卓拉 /app-legacy/frame.png 时渲当前那一页(带 TTL 缓存)。
+LEGACY_FRAMES_LOCK = threading.Lock()
 RENDER_LOCK = threading.Lock()
 CURRENT = {"style": None}
 page_state = {"i": 0, "last": 0.0}
+legacy_page_state = {"i": 0, "last": 0.0}
 
 SOURCES = (weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader)
 CONFIG_SAVE_SYNC_SOURCES = (weather,)
@@ -270,15 +274,16 @@ def _music_cache_artwork(art_hash, blob, mime, meta, sampled_at):
 
 
 def _music_artwork_wall():
+    """静态目标(Kindle/web-simple)的封面墙:每次调用**真随机**抽 count 张 → data URI。
+    渲染循环每帧重抽(render_all 注入),所以 Kindle 每次刷到屏保都是新的一批(不再 5 分钟才换)。
+    封面转 base64 内嵌,因为 Kindle 出图是 file:// 临时 HTML,相对/HTTP 图不稳。"""
     count = _music_cfg_int("artwork_wall_count", 20, 1, 40)
     items = [it for it in _music_load_artwork_index() if isinstance(it, dict) and it.get("path")]
     if not items:
         return []
-    rng = random.Random(int(time.time() // 300))
-    items = list(items)
-    rng.shuffle(items)
+    k = min(count, len(items))
     out = []
-    for it in items[:count]:
+    for it in random.sample(items, k):
         path = os.path.join(MUSIC_ARTWORK_DIR, it.get("path", ""))
         try:
             with open(path, "rb") as f:
@@ -293,6 +298,100 @@ def _music_artwork_wall():
             "artist": it.get("artist", ""),
         })
     return out
+
+
+# 动态目标(/app、/app-legacy)的「渐换封面墙」状态:服务端维护一组当前显示的封面,
+# 每 artwork_swap_interval 秒漂移 1~artwork_swap_max 张(Apple TV 式)。所有动态客户端
+# 轮询看到同一组、同步漂移;只有变动的几张 <img> 的 URL 变 → 浏览器命中缓存不闪。
+_DYN_WALL = {"tiles": [], "ts": 0.0}    # tiles: 当前显示的 hash 有序列表;ts: 上次漂移时刻
+_DYN_WALL_LOCK = threading.Lock()
+
+
+def _music_artwork_pool(limit):
+    """全部缓存封面的轻量元数据(只 hash/album/artist,**不读图不 base64**),按 last_seen 倒序取前 limit。
+    给动态版漂移墙当「池子」用;真正的图经 /music/artwork/<hash> 单独按需拉。"""
+    items = [it for it in _music_load_artwork_index()
+             if isinstance(it, dict) and it.get("hash") and it.get("path")]
+    items.sort(key=lambda it: float(it.get("last_seen") or 0), reverse=True)
+    return items[:max(0, limit)]
+
+
+def _wall_show_count(n):
+    """按封面数退到的实际显示格子数——**必须与 build_context._music_wall_layout 的档位一致**
+    (1/2/4/9/16/20 向下取),否则漂移会误以为在操作没显示出来的格子(如 5 张实际只显示 4)。"""
+    if n <= 0:
+        return 0
+    if n == 1:
+        return 1
+    if n < 4:
+        return 2
+    if n < 9:
+        return 4
+    if n < 16:
+        return 9
+    if n < 20:
+        return 16
+    return 20
+
+
+def _dyn_wall_tiles():
+    """动态版当前应显示的封面墙(漂移后)。返回 [{hash, album, artist, url:""}](url 空,模板按 hash 拼 HTTP URL)。
+    显示格子数按布局档位退档(与静态墙一致),多出来的封面留作「备用池」。
+    规则(只要显示数 ≥2 就一直在动):到点(now-ts>=interval)随机挑 1~swap_max 个格子,逐格——
+      · 备用池里有「还没显示的图」→ 换成新图(真·渐换;如 5 张显示 4、第 5 张轮流上场);
+      · 没有新图(池子==显示数,已满铺,如正好 4 张)→ 与另一个随机格子对调位置(画面照动、不重复显示);
+    只有 1 张时无格可换/可调,静止(物理必然)。"""
+    count = _music_cfg_int("artwork_wall_count", 20, 1, 40)
+    pool_size = _music_cfg_int("artwork_pool_size", 40, 1, 200)
+    interval = _music_cfg_int("artwork_swap_interval", 4, 1, 600)
+    swap_max = _music_cfg_int("artwork_swap_max", 3, 1, 40)
+    pool = _music_artwork_pool(pool_size)
+    if not pool:
+        return []
+    by_hash = {it["hash"]: it for it in pool}
+    pool_hashes = list(by_hash.keys())
+    # 显示数按档位退档(如 5 张→显示 4),剩下的就是漂移可用的备用图。avail 先夹到 count 上限。
+    show_n = _wall_show_count(min(count, len(pool_hashes)))
+    now = time.time()
+    with _DYN_WALL_LOCK:
+        cur = [h for h in _DYN_WALL["tiles"] if h in by_hash]    # 丢掉已被缓存淘汰的
+        if len(cur) < show_n:                                    # 初次/缓存新增:补满
+            spare = [h for h in pool_hashes if h not in cur]
+            random.shuffle(spare)
+            cur += spare[:show_n - len(cur)]
+            _DYN_WALL["ts"] = now
+        elif len(cur) > show_n:                                  # 缓存缩水:截断
+            cur = cur[:show_n]
+        if show_n >= 2 and now - _DYN_WALL["ts"] >= interval:    # 到点漂移
+            k = random.randint(1, min(swap_max, show_n))
+            for slot in random.sample(range(show_n), k):
+                shown = set(cur)
+                spare = [h for h in pool_hashes if h not in shown]
+                if spare:                                        # 有新图:换上
+                    cur[slot] = random.choice(spare)
+                elif show_n >= 2:                                # 满铺:与另一格对调位置
+                    others = [i for i in range(show_n) if i != slot]
+                    j = random.choice(others)
+                    cur[slot], cur[j] = cur[j], cur[slot]
+            _DYN_WALL["ts"] = now
+        _DYN_WALL["tiles"] = list(cur)
+    return [{"hash": h, "album": by_hash[h].get("album", ""),
+             "artist": by_hash[h].get("artist", ""), "url": ""} for h in cur]
+
+
+def _inject_dyn_wall(snap):
+    """动态路由(/app、/app-legacy)渲染前,把屏保封面墙换成服务端漂移墙(就地改 snap)。
+    只在屏保态(停播/暂停)替换;有歌在放时模板根本不显墙,替不替都无影响,故只在该态省一次漂移计算。"""
+    mus = snap.get("music")
+    if not isinstance(mus, dict):
+        return
+    if mus.get("has_track") and mus.get("state") != "paused":
+        return
+    tiles = _dyn_wall_tiles()
+    if tiles:
+        mus = dict(mus)
+        mus["artwork_wall"] = tiles
+        snap["music"] = mus
 
 
 def _music_payload(data, previous=None):
@@ -614,16 +713,31 @@ def render_all(cfg):
     rc = pipeline.RenderConfig.from_config(cfg)
     pages = schema.active_pages(cfg)
     with cache_lock:
-        ctx = prep_context(now, dict(cache), cfg)
+        snap = dict(cache)
+    # 静态封面墙每帧重抽:Kindle 每次刷到音乐屏保都是新的随机一批(屏保页内容变是有意的;
+    # 其余页/有歌曲页零回归)。只在该重画一组时换 music.artwork_wall,不动别的。
+    mus = snap.get("music")
+    if isinstance(mus, dict) and mus.get("artwork_wall"):
+        mus = dict(mus)
+        mus["artwork_wall"] = _music_artwork_wall()
+        snap["music"] = mus
+    ctx = prep_context(now, snap, cfg)
     new = {}
     for pk in pages:
         if not styles.has_page(style, pk):
             continue
         ctx["page_no"], ctx["page_total"] = _page_meta(cfg, style, pk)
         try:
-            new[pk] = pipeline.render_html_to_png(styles.render_page(style, pk, ctx), rc)
+            html = styles.render_page(style, pk, ctx)
         except Exception as e:
             print(f"[render] {pk}: {e}")
+            continue
+        try:
+            new[pk] = pipeline.render_html_to_png(html, rc)
+        except Exception as e:
+            print(f"[render] {pk}: {e}")
+    # legacy(安卓 4.x 图片相框)彩图不在这里渲——改成 /app-legacy/frame.png 惰性按需(只渲在看的那页)。
+    # 没老安卓设备连着时零开销;详见 app_legacy_frame。
     if not new:
         if pages:        # 有启用页却全失败=真僵尸,才清理;无启用页(还没配数据源)不算失败,别瞎杀
             pipeline.kill_stale_chrome()
@@ -831,6 +945,14 @@ def _placeholder():
     b = io.BytesIO(); img.save(b, format="PNG"); return b.getvalue()
 
 
+def _legacy_placeholder():
+    from PIL import Image, ImageDraw
+    img = Image.new("RGB", (800, 600), (236, 232, 222))
+    d = ImageDraw.Draw(img)
+    d.text((350, 290), "Loading...", fill=(120, 120, 120))
+    b = io.BytesIO(); img.save(b, format="PNG"); return b.getvalue()
+
+
 @app.get("/kindle/frame.png")
 def kindle_frame():
     cfg = cm.get()
@@ -855,6 +977,73 @@ def kindle_page(page_key: str):
     with RENDER_LOCK:
         png = RENDERED.get(page_key)
     return Response(png or _placeholder(), media_type="image/png")
+
+
+def _legacy_render_page(cfg, pk):
+    """把当前风格的某页渲成一张 800x600 **彩色** PNG(给安卓 4.x 图片相框,老平板当相框显示)。
+    target=legacy_photo:借 static 版式(不渲点不了的控件/歌词、封面墙走 data URI 故 file:// 出图能渲),
+    但还原彩色封面 + 暖白底(见 styles.LEGACY_PHOTO_CSS);彩色、不旋转、不灰度。**Kindle 路径不碰。**"""
+    now = datetime.now(_tz(cfg))
+    style = styles.pick_style(cfg, now.date())
+    if not style or not styles.has_page(style, pk):
+        return None
+    with cache_lock:
+        snap = dict(cache)
+    mus = snap.get("music")        # 屏保封面墙跟 Kindle 一样每次重抽(图片模式也跟着变批)
+    if isinstance(mus, dict) and mus.get("artwork_wall"):
+        mus = dict(mus)
+        mus["artwork_wall"] = _music_artwork_wall()
+        snap["music"] = mus
+    ctx = prep_context(now, snap, cfg)
+    ctx["page_no"], ctx["page_total"] = _page_meta(cfg, style, pk)
+    html = styles.render_page(style, pk, ctx, target="legacy_photo")
+    rc = pipeline.RenderConfig.from_config(cfg)
+    # 按 2x 高清渲染(base 800×600 矢量 + device-scale-factor=2 → 输出 1600×1200,字体/斜线锐利),
+    # pad 端用 CSS 把高清图 downscale 铺满 → 比直接出 800×600 再放大清楚得多(同 Kindle 按机型分辨率出图的道理)。
+    legacy_rc = pipeline.RenderConfig(
+        width=pipeline.BASE_W * 2, height=pipeline.BASE_H * 2,
+        base_width=pipeline.BASE_W, base_height=pipeline.BASE_H,
+        rotate=0, grayscale=False, timeout=rc.timeout, chrome_bin=rc.chrome_bin)
+    return pipeline.render_html_to_png(html, legacy_rc)
+
+
+@app.get("/app-legacy/frame.png")
+def app_legacy_frame():
+    """安卓 4.x 出口:给 WebView 一张 800x600 彩色 PNG(老平板当相框)。**惰性按需**:
+    只在本接口被拉时渲当前在看的那一页,按 render_interval 做 TTL 缓存(同一页这段时间内只渲一次);
+    没老安卓设备来拉就完全不渲(开源用户大多没 4.2 机器,零额外开销)。翻页节奏所有客户端共享、与 web-simple 一致。
+    鉴权仍走 /app-legacy 的 token,不豁免。"""
+    cfg = cm.get()
+    page_interval = _interval(cfg, "server", "page_interval", 20)
+    ttl = _interval(cfg, "server", "render_interval", 30)
+    style = styles.pick_style(cfg)
+    active = [p for p in schema.active_pages(cfg) if styles.has_page(style, p)] if style else []
+    if not active:
+        return Response(_legacy_placeholder(), media_type="image/png", headers={"Cache-Control": "no-store"})
+    now_ts = time.time()
+    with LEGACY_FRAMES_LOCK:        # 翻页:所有 legacy 客户端共享一个节奏(同 web-simple)
+        if legacy_page_state["last"] == 0.0:
+            legacy_page_state["last"] = now_ts
+        elif now_ts - legacy_page_state["last"] >= page_interval:
+            legacy_page_state["i"] = (legacy_page_state["i"] + 1) % len(active)
+            legacy_page_state["last"] = now_ts
+        pk = active[legacy_page_state["i"] % len(active)]
+        cached = LEGACY_FRAMES.get(pk)
+    png = None
+    if cached and (now_ts - cached[1] < ttl):
+        png = cached[0]            # 缓存还新鲜,直接用(同页这一轮内不重渲)
+    else:
+        try:
+            png = _legacy_render_page(cfg, pk)
+        except Exception as e:
+            print(f"[legacy-frame] {pk}: {e}")
+        if png:
+            with LEGACY_FRAMES_LOCK:
+                LEGACY_FRAMES[pk] = (png, now_ts)
+        elif cached:
+            png = cached[0]        # 渲染失败保留旧帧(诚实降级)
+    return Response(png or _legacy_placeholder(), media_type="image/png",
+                    headers={"Cache-Control": "no-store"})
 
 
 @app.get("/kindle/preview.png")
@@ -986,6 +1175,26 @@ async def api_music_push(data: dict = Body(...)):
             "artwork_wall": len(payload.get("artwork_wall") or [])}
 
 
+@app.get("/music/artwork/{art_hash}")
+def music_artwork(art_hash: str):
+    """按 hash 返回一张缓存专辑封面(动态版渐换墙的 <img> 走这里,而非 data URI)。
+    封面按 hash 不可变 → 长缓存 immutable,轮询重渲染时浏览器命中缓存、不闪不重拉。
+    经 _auth 令牌保护(不豁免);按索引里的 hash 精确匹配 + abspath 限定在 MUSIC_ARTWORK_DIR 内,杜绝路径穿越。"""
+    for it in _music_load_artwork_index():
+        if isinstance(it, dict) and it.get("hash") == art_hash:
+            path = os.path.join(MUSIC_ARTWORK_DIR, it.get("path", ""))
+            if os.path.abspath(path).startswith(os.path.abspath(MUSIC_ARTWORK_DIR)) and os.path.isfile(path):
+                try:
+                    with open(path, "rb") as f:
+                        blob = f.read()
+                except Exception:
+                    break
+                return Response(blob, media_type=it.get("mime") or "image/jpeg",
+                                headers={"Cache-Control": "public, max-age=86400, immutable"})
+            break
+    return Response(b"", media_type="image/jpeg", status_code=404)
+
+
 # ---------- 安卓 App:活的交互 HTML(/app 外壳 + /app/page/* 单页)----------
 # 都经 _auth 令牌保护(不是 Kindle 拉图,绝不豁免)。一套 styles 模板,target=android 出活 HTML。
 APP_PAGE_TEXTS = {
@@ -1016,7 +1225,7 @@ APP_PAGE_TEXTS = {
 # 正则只是起点,真机校准:安卓4.2 必落 legacy、Kindle 自带浏览器必落 simple(附录B)。
 # 装壳不靠 UA:安卓壳按 SDK_INT 直接加载对应路径(更准),浏览器直接开才走这里。
 _UA_ANCIENT = re.compile(r"(Kindle|Silk|NetFront|Obigo|UCWEB|Android [0-2]\.)", re.I)
-_UA_OLD_ANDROID = re.compile(r"(Android [34]\.|Version/4\.)", re.I)
+_UA_OLD_ANDROID = re.compile(r"Android [34]\.", re.I)
 
 
 def _classify_ua(ua: str) -> str:
@@ -1083,7 +1292,10 @@ def app_page(page_key: str, request: Request):
         return HTMLResponse("", status_code=404)
     now = datetime.now(_tz(cfg))
     with cache_lock:
-        ctx = prep_context(now, dict(cache), cfg)
+        snap = dict(cache)
+    _inject_dyn_wall(snap)                # 动态版屏保:服务端漂移墙(模板按 hash 走 /music/artwork)
+    ctx = prep_context(now, snap, cfg)
+    ctx["app_token"] = request.query_params.get("token", "") or ""
     # 安卓 App 把**本机(手机/平板)电量**经 query 传来 → 覆盖页脚电量。
     # 否则页脚显示的是 Kindle 经 /api/kindle-status 上报的电量(App 跑在手机上,该显示手机的)。
     # /app/page 永远不是 Kindle 在请求(Kindle 走 /kindle/*),所以页脚电量只认本机经 query 传来的;
@@ -1134,15 +1346,18 @@ def web_simple(request: Request):
     return HTMLResponse(page)
 
 
-# ---------- 老系统(安卓 4.x 古董 WebView)降级活页:/app-legacy 外壳 + 单页片段 ----------
-# 路线 B(服务端渲染,端上薄 ES5 轮询):legacy 模板在服务端用 float-CSS 渲染,端上 XHR 拉片段。
-# 都经 _auth 令牌(绝不豁免,绝不进 _AUTH_EXEMPT_*——能暴露看板数据)。施工图 §2。
+# ---------- 老系统(安卓 4.x 古董 WebView)降级出口 ----------
+# 默认 /app-legacy = 图片相框:复用当前 7 套风格的服务端彩色 PNG,端上只显示 <img>。
+# 旧 ES5 活页壳保留在 /app-legacy-live + styles/legacy/*,用于调试/回滚/沉淀经验。
+# 都经 _auth 令牌(绝不豁免,绝不进 _AUTH_EXEMPT_*——能暴露看板数据)。
 @app.get("/app-legacy", response_class=HTMLResponse)
 def app_legacy_shell(request: Request):
-    """老系统降级外壳(ES5 XHR 轮询 + innerHTML + 翻页)。页面内容靠 /app-legacy/page/* 轮询拉。"""
+    """老系统降级外壳:图片相框模式。
+    Android 4.2 WebView 不再承载业务布局,只显示服务端预渲染的 800x600 彩色 PNG。"""
     cfg = cm.get()
     lang = (cfg.get("server", {}) or {}).get("language", "zh")
-    active = [p for p in schema.active_pages(cfg) if styles.has_page("legacy", p)]
+    style = styles.pick_style(cfg)
+    active = [p for p in schema.active_pages(cfg) if styles.has_page(style, p)]
     pages = [{"key": p, "title": contract.PAGES[p]["title"]} for p in active]
     token = request.query_params.get("token", "") or ""
     texts = APP_PAGE_TEXTS.get(lang, APP_PAGE_TEXTS["zh"])
@@ -1164,6 +1379,33 @@ def app_legacy_shell(request: Request):
                         headers={"Cache-Control": "no-store"})
 
 
+@app.get("/app-legacy-live", response_class=HTMLResponse)
+def app_legacy_live_shell(request: Request):
+    """旧 legacy 活页壳保留入口(调试/回滚用)。
+    默认 /app-legacy 已切到图片相框模式;这个入口保留 ES5 + /app-legacy/page/* 的老实现和经验教训。"""
+    cfg = cm.get()
+    lang = (cfg.get("server", {}) or {}).get("language", "zh")
+    active = [p for p in schema.active_pages(cfg) if styles.has_page("legacy", p)]
+    pages = [{"key": p, "title": contract.PAGES[p]["title"]} for p in active]
+    token = request.query_params.get("token", "") or ""
+    texts = APP_PAGE_TEXTS.get(lang, APP_PAGE_TEXTS["zh"])
+    app_cfg = {
+        "token": token,
+        "interval": _interval(cfg, "server", "app_poll_interval", 5),
+        "page_interval": _interval(cfg, "server", "page_interval", 20),
+        "default": active[0] if active else "home",
+        "pages": pages,
+        "texts": {"reconnecting": texts.get("reconnecting", ""), "no_pages": texts.get("no_pages", "")},
+    }
+    path = os.path.join(WEB_DIR, "app-legacy-live.html")
+    if not os.path.exists(path):
+        return HTMLResponse("<h1>legacy live 外壳未安装</h1>", status_code=404)
+    with open(path, encoding="utf-8") as f:
+        shell = f.read()
+    return HTMLResponse(shell.replace("__APP_CONFIG__", json.dumps(app_cfg, ensure_ascii=False)),
+                        headers={"Cache-Control": "no-store"})
+
+
 @app.get("/app-legacy/page/{page_key}", response_class=HTMLResponse)
 def app_legacy_page(page_key: str, request: Request):
     """用 legacy 模板渲染单页 float-CSS 片段(target=legacy,纯 float+ES5 友好,不注入现代 android 主题)。"""
@@ -1172,7 +1414,10 @@ def app_legacy_page(page_key: str, request: Request):
         return HTMLResponse("", status_code=404)
     now = datetime.now(_tz(cfg))
     with cache_lock:
-        ctx = prep_context(now, dict(cache), cfg)
+        snap = dict(cache)
+    _inject_dyn_wall(snap)                # 动态版屏保:服务端漂移墙(模板按 hash 走 /music/artwork)
+    ctx = prep_context(now, snap, cfg)
+    ctx["app_token"] = request.query_params.get("token", "") or ""
     # legacy 跑在老安卓/浏览器上,不是 Kindle → 页脚电量只认本机经 query 传来的(老 WebView 多半给不了),
     # 给不到就清空(不退回显示 Kindle 的电量,模板 battery.has 为假即不显示)。
     kb = request.query_params.get("kbatt")
