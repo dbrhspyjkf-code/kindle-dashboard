@@ -3,6 +3,7 @@ package com.kindledash.app;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.text.TextUtils;
@@ -98,20 +99,25 @@ public class LegacySetupActivity extends Activity {
         // 扫码配置:复用锁竖屏的 PortraitCaptureActivity(ZXing)。纯 Activity 没有 AndroidX
         // ActivityResult,走经典 startActivityForResult;结果在 onActivityResult 解析。
         // 注意:ZXing 类只在点按时才加载,看板 kiosk 路径(MainActivity)不受牵连。
-        Button scan = new Button(this);
-        scan.setText(R.string.scan_qr);
-        LinearLayout.LayoutParams scanLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        scanLp.topMargin = gap;
-        scan.setLayoutParams(scanLp);
-        scan.setOnClickListener(v -> {
-            try {
-                startActivityForResult(new Intent(this, PortraitCaptureActivity.class), REQ_SCAN);
-            } catch (Throwable e) {   // 老机相机/库异常不崩,降级手填
-                Toast.makeText(this, R.string.scan_unrecognized, Toast.LENGTH_LONG).show();
-            }
-        });
-        col.addView(scan);
+        // ⚠️ 扫码走 ZXing CaptureActivity,实测在 4.2/4.3(API<19)上其 onCreate 因高版本 API 直接闪退
+        // (崩在子 Activity 生命周期里,上面的 try/catch 包不住)。故仅 KitKat(19)+ 才提供扫码按钮;
+        // 4.2/4.3 用上方手填入口(legacy 本就以手填为主、宣称"零现代库依赖")。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            Button scan = new Button(this);
+            scan.setText(R.string.scan_qr);
+            LinearLayout.LayoutParams scanLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            scanLp.topMargin = gap;
+            scan.setLayoutParams(scanLp);
+            scan.setOnClickListener(v -> {
+                try {
+                    startActivityForResult(new Intent(this, PortraitCaptureActivity.class), REQ_SCAN);
+                } catch (Throwable e) {   // 老机相机/库异常不崩,降级手填
+                    Toast.makeText(this, R.string.scan_unrecognized, Toast.LENGTH_LONG).show();
+                }
+            });
+            col.addView(scan);
+        }
 
         // 在线更新(走 GitHub;4.x 由 UpdateChecker 强开 TLS1.2)。
         Button upd = new Button(this);

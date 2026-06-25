@@ -87,9 +87,11 @@ public class Prefs {
 
     public float gearFy() { return sp.getFloat(K_GEAR_FY, -1f); }
 
-    /** 拼接活 HTML 外壳地址:base + /app?token=...(现代 5.0+ 路径)。 */
+    /** 拼接活 HTML 外壳地址:base + /app?force=app&token=...(现代 5.0+ 路径)。
+     * 现代 App 已在 MainActivity 按 SDK_INT>=21 分流,这里显式 force=app,避免某些现代 WebView
+     * UA 里带 `Version/4.0` 被服务端浏览器降级规则误判成 /app-legacy。 */
     public String appUrl() {
-        return urlWithToken("/app");
+        return urlWithToken("/app?force=app");
     }
 
     /** 拼接 base + path(?token=...);path 以 / 开头。供现代 /app 与老系统降级页(/web-simple、后续 /app-legacy)复用。 */
@@ -98,7 +100,9 @@ public class Prefs {
         String t = token();
         String url = base + path;
         if (t != null && !t.isEmpty()) {
-            url += "?token=" + android.net.Uri.encode(t);
+            // path 可能已带查询串(如 /app?force=app)→ 用 & 续接,否则用 ?;
+            // 否则拼成 /app?force=app?token=... 第二个 ? 非法,token 参数丢失致 401。
+            url += (path.indexOf('?') >= 0 ? "&" : "?") + "token=" + android.net.Uri.encode(t);
         }
         return url;
     }
