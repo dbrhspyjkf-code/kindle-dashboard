@@ -349,7 +349,7 @@ SCHEMA: list = [
 
     Section(
         key="devices", label="设备监控", page="device",
-        help="要监控的机器(Windows/Linux/Mac 均可)。本机直读;远程机器每台二选一:推(装 agent,不交密码)或 拉(填 SSH)。",
+        help="要监控的机器(Windows/Linux/Mac 均可)。本机直读,或远程机器装 agent 推送上报(不交密码)。",
         enable_when=[],  # 有任意一台设备即启用,见 enabled_modules 特判
         fields=[
             Field("machines", "机器列表", "module_list", default=[],
@@ -382,7 +382,7 @@ SCHEMA: list = [
                   help_en="A push device with no report for this many seconds is treated as offline and "
                           "dropped from the dashboard (so it disappears after the machine powers off / "
                           "drops network). Use >= 3x the agent's report interval to avoid false positives "
-                          "from an occasional missed report. Local/SSH devices are unaffected."),
+                          "from an occasional missed report. Local devices are unaffected."),
         ],
     ),
 
@@ -538,7 +538,7 @@ def _check_type(v, t) -> bool:
 OPTION_LABELS_EN = {
     "zh": "中文", "en": "English",
     "qweather": "QWeather",
-    "local": "Local (read on host)", "push": "Push (agent on target)", "ssh": "Pull (SSH in)",
+    "local": "Local (read on host)", "push": "Push (agent on target)",
     "auto": "Auto-detect", "linux": "Linux", "macos": "macOS", "windows": "Windows",
     "fixed": "Fixed one", "daily_random": "Daily random",
     "both": "Claude + Codex", "claude": "Claude only", "codex": "Codex only",
