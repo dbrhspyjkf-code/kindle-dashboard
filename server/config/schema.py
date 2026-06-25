@@ -120,10 +120,12 @@ SCHEMA: list = [
             Field("render_grayscale", "灰度输出", "bool", True),
             Field("render_interval", "出图刷新间隔(秒)", "int", 30,
                   help="多久重渲染一次看板图(刷新时钟与已变数据)。与采集解耦,慢数据源不影响它。"),
-            Field("app_poll_interval", "App 刷新间隔(秒)", "int", 5,
+            Field("app_poll_interval", "App 刷新间隔(秒)", "int", 3,
                   label_en="App refresh interval (s)",
-                  help="安卓 App 版活 HTML 每隔几秒拉一次最新页面(触控版,与 Kindle 出图无关)。建议 3~10。",
-                  help_en="How often the Android app re-fetches the live page (touch version; unrelated to Kindle frames). 3~10 recommended."),
+                  help="安卓 App 版活 HTML 每隔几秒拉一次最新页面(触控版,与 Kindle 出图无关)。建议 3~10。"
+                       "音乐页在歌曲结束时还会额外主动拉一次以尽快换到下一首。",
+                  help_en="How often the Android app re-fetches the live page (touch version; unrelated to Kindle frames). 3~10 recommended. "
+                          "The music page also pulls once extra when a track ends, to switch to the next song sooner."),
             Field("access_token", "设置页访问令牌", "str", "", secret=True,
                   help="保护设置页/配置接口不被同 WiFi 其他人访问。安装/首次启动自动生成,"
                        "用带令牌的链接打开设置页(install 会打印 :端口/setup?token=...)。"
@@ -319,6 +321,13 @@ SCHEMA: list = [
                   help="暂停超过多久后不再显示暂停歌曲页,改为专辑封面墙。0=关闭。",
                   label_en="Paused idle wall after (s)",
                   help_en="After this many paused seconds, show the album-wall screensaver instead of the paused track. 0 disables it."),
+            Field("lyrics_enabled", "显示歌词", "bool", True,
+                  help="换歌时自动联网查带时间轴的歌词(网易云优先、LRCLIB 兜底,只在手机/网页动态版滚动显示;"
+                       "Kindle 静态版不显歌词)。查不到则回退普通播放器。需联网。",
+                  label_en="Show lyrics",
+                  help_en="Auto-fetch time-synced lyrics on track change (NetEase first, LRCLIB fallback; scrolls only "
+                          "in the live phone/web view, never on the static Kindle view). Falls back to the plain player "
+                          "when none found. Requires internet."),
             Field("artwork_cache_limit", "封面缓存上限(张)", "int", 120,
                   help="服务端最多缓存多少张历史专辑封面,用于无播放/暂停超时封面墙。",
                   label_en="Artwork cache limit",

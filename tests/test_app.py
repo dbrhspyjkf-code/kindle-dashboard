@@ -15,6 +15,9 @@ os.environ["KINDLE_DATA_DIR"] = TEST_DATA_DIR
 
 from fastapi.testclient import TestClient  # noqa: E402
 from server.app import app, cm              # noqa: E402
+import server.app as _appmod                 # noqa: E402
+
+_appmod.lyrics.fetch_lyrics = lambda *a, **k: []   # 测试绝不触网查歌词(music 推送会触发后台查询)
 
 client = TestClient(app)                     # 不用 with → 不触发 startup/data_loop
 
@@ -566,3 +569,36 @@ if __name__ == "__main__":
         fn()
         print(f"  ✓ {fn.__name__}")
     print(f"\n{len(fns)} passed")
+
+
+def test_lyrics_wiring():
+    """歌词接线:worker 写缓存并补进 cache['music'];_music_payload 挂歌词;开关关则不查。"""
+    from server import app as A
+
+    A.cache["music"] = {"has_track": True, "track_id": "tid-x", "name": "S"}
+    fake = [{"t": 1.0, "text": "一句歌词"}]
+    orig = A.lyrics.fetch_lyrics
+    A.lyrics.fetch_lyrics = lambda *a, **k: fake
+    try:
+        with A._LYRICS_LOCK:
+            A._LYRICS_CACHE.clear()
+        A._lyrics_worker("tid-x", "S", "A", 200, "Alb")      # 同步跑,不起线程
+    finally:
+        A.lyrics.fetch_lyrics = orig
+    assert A._LYRICS_CACHE["tid-x"] == fake
+    assert A.cache["music"]["lyrics"] == fake                 # 补进当前曲
+
+    # _music_payload 从缓存挂歌词
+    payload = A._music_payload({"has_track": True, "state": "playing", "name": "S",
+                               "track_id": "tid-x", "duration": 200, "sampled_at": 1})
+    assert payload["lyrics"] == fake
+
+    # 开关关闭 → 不查(不进缓存/不在飞行)
+    with A._LYRICS_LOCK:
+        A._LYRICS_CACHE.clear(); A._LYRICS_INFLIGHT.clear()
+    A.cm.get().setdefault("music", {})["lyrics_enabled"] = False
+    try:
+        A._maybe_fetch_lyrics({"has_track": True, "track_id": "tid-y", "name": "S2"})
+        assert "tid-y" not in A._LYRICS_CACHE and "tid-y" not in A._LYRICS_INFLIGHT
+    finally:
+        A.cm.get()["music"]["lyrics_enabled"] = True

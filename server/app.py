@@ -26,7 +26,7 @@ from server.config import schema
 from server.config.loader import ConfigManager
 from server.render import styles, pipeline, contract
 from server.render.build_context import prep_context
-from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader
+from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader, lyrics
 from server.sources.ccusage_merge import merge_all_devices
 from server import actions
 
@@ -99,6 +99,67 @@ cm = ConfigManager(CONFIG_PATH)
 
 cache = {}
 cache_lock = threading.Lock()
+
+# 歌词缓存:track_id → [{t,text}](换歌才联网查一次,后台线程不阻塞推送)。
+# 空列表 [] 也缓存,表示"查过但没有",避免每帧重查;_LYRICS_INFLIGHT 防并发重复查。
+_LYRICS_CACHE = {}
+_LYRICS_INFLIGHT = set()
+_LYRICS_LOCK = threading.Lock()
+_LYRICS_CACHE_MAX = 64
+
+
+def _lyrics_get(track_id):
+    """读歌词缓存(供 _music_payload 挂到 payload)。未缓存 → []。"""
+    if not track_id:
+        return []
+    with _LYRICS_LOCK:
+        return list(_LYRICS_CACHE.get(track_id, []))
+
+
+def _lyrics_worker(track_id, name, artist, duration, album):
+    """后台线程:查歌词 → 缓存 → 补进当前 cache['music'] 并落盘(若仍是这首)。"""
+    try:
+        result = lyrics.fetch_lyrics(name, artist, duration, album)
+    except Exception as e:
+        print(f"[lyrics] 查询出错 {name}:{e}")
+        result = []
+    with _LYRICS_LOCK:
+        if len(_LYRICS_CACHE) >= _LYRICS_CACHE_MAX:   # 简单淘汰:清掉最早插入的一半(dict 保序)
+            for k in list(_LYRICS_CACHE)[: _LYRICS_CACHE_MAX // 2]:
+                _LYRICS_CACHE.pop(k, None)
+        _LYRICS_CACHE[track_id] = result
+        _LYRICS_INFLIGHT.discard(track_id)
+    with cache_lock:
+        m = cache.get("music")
+        if isinstance(m, dict) and (m.get("track_id") or "") == track_id:
+            m["lyrics"] = result
+            try:
+                _atomic_json_write(MUSIC_CACHE, _music_payload_for_disk(m))
+            except Exception:
+                pass
+    print(f"[lyrics] {name} — {artist}:{len(result)} 行")
+
+
+def _maybe_fetch_lyrics(payload):
+    """换歌(track_id 未缓存且未在查)时,起后台线程查歌词。开关关 / 无曲目 → 跳过。"""
+    if not payload.get("has_track"):
+        return
+    if not (cm.get().get("music", {}) or {}).get("lyrics_enabled", True):
+        return
+    track_id = payload.get("track_id") or ""
+    name = payload.get("name") or ""
+    if not track_id or not name or name == "--":
+        return
+    with _LYRICS_LOCK:
+        if track_id in _LYRICS_CACHE or track_id in _LYRICS_INFLIGHT:
+            return
+        _LYRICS_INFLIGHT.add(track_id)
+    threading.Thread(
+        target=_lyrics_worker,
+        args=(track_id, name, payload.get("artist") or "",
+              payload.get("duration") or None, payload.get("album") or ""),
+        daemon=True,
+    ).start()
 
 RENDERED = {}            # {page_key: png bytes}
 RENDER_ORDER = []        # 当前轮播顺序
@@ -315,6 +376,7 @@ def _music_payload(data, previous=None):
         "artwork_url": art_url,
         "artwork_wall": _music_artwork_wall(),
         "updated_at": updated_at,
+        "lyrics": _lyrics_get(track_id),
     }
     return payload
 
@@ -361,6 +423,10 @@ def _load_music_cache():
     payload["artwork_wall"] = _music_artwork_wall()
     with cache_lock:
         cache["music"] = payload
+    tid = payload.get("track_id") or ""        # 种回歌词缓存,重启后同曲不重查
+    if tid and isinstance(payload.get("lyrics"), list):
+        with _LYRICS_LOCK:
+            _LYRICS_CACHE[tid] = payload["lyrics"]
     print(f"[music-push] 已加载本地缓存:{'有曲目' if payload.get('has_track') else '无播放'}")
 
 
@@ -909,6 +975,7 @@ async def api_music_push(data: dict = Body(...)):
             cache["music"] = payload
     except ValueError as e:
         return JSONResponse({"status": "rejected", "error": str(e)}, status_code=413)
+    _maybe_fetch_lyrics(payload)   # 换歌则后台查歌词(不阻塞本次推送响应)
     try:
         _atomic_json_write(MUSIC_CACHE, _music_payload_for_disk(payload))
     except Exception as e:

@@ -74,6 +74,21 @@
 .idle-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
 .idle-empty .big{font-family:"Noto Serif CJK SC","Songti SC",serif;font-size:44px;font-weight:900;line-height:1.1;margin-bottom:12px;}
 .idle-empty .hint{font-size:13px;font-weight:800;color:var(--ink3);letter-spacing:1px;}
+/* —— 歌词(仅 android 查到歌词时,作用域 .has-lyrics,Kindle/无歌词零影响) ——
+   区域保护:歌名/歌手/专辑/状态/进度全部 flex-shrink:0 永不被压;歌词区吃剩余空间,
+   超长只在自己区域内截断(上下句各 1 行省略号,当前句最多 2 行),绝不挤占别的区域。 */
+.has-lyrics .song,.has-lyrics .artist,.has-lyrics .album,
+.has-lyrics .status-row,.has-lyrics .progress{flex-shrink:0;}
+.has-lyrics .song{-webkit-line-clamp:1;}
+.lyric-box{flex:1 1 0;min-height:0;display:flex;flex-direction:column;justify-content:center;
+  gap:9px;overflow:hidden;padding:6px 0;}
+.lyric-box .ly{font-family:"Noto Serif CJK SC","Songti SC",serif;overflow:hidden;
+  overflow-wrap:anywhere;flex-shrink:0;}
+.lyric-box .prev,.lyric-box .next{font-size:17px;line-height:1.35;font-weight:600;color:var(--ink3);
+  white-space:nowrap;text-overflow:ellipsis;}
+.lyric-box .cur{font-size:25px;line-height:1.34;font-weight:900;color:var(--ink);position:relative;
+  padding-left:17px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.lyric-box .cur:before{content:"";position:absolute;left:0;top:4px;bottom:4px;width:5px;background:var(--ink);}
 </style></head><body class="{% if target=='android' %}android{% else %}static{% endif %}">
 <div class="masthead">
   <div><div class="kicker">{{ t.music_kicker }}</div>
@@ -97,11 +112,19 @@
     </div>
   </section>
 
-  <section class="track">
+  <section class="track{% if target=='android' and music.has_lyrics %} has-lyrics{% endif %}">
     <div class="spin-label">{{ t.music_now_spinning }}</div>
     <h1 class="song">{{ music.name }}</h1>
     {% if music.artist %}<div class="artist">{{ music.artist }}</div>{% endif %}
     <div class="album">{% if music.album %}{{ music.album }}{% endif %}{% if music.album and music.year %} · {% endif %}{% if music.year %}{{ music.year }}{% endif %}</div>
+
+    {% if target=='android' and music.has_lyrics %}
+    <div class="lyric-box" aria-label="歌词">
+      <div class="ly prev" data-ly-prev></div>
+      <div class="ly cur" data-ly-cur></div>
+      <div class="ly next" data-ly-next></div>
+    </div>
+    {% endif %}
 
     <div class="status-row">
       <div class="now-box">
@@ -158,6 +181,26 @@
   var timeEl = document.querySelector("[data-music-time]");
   var posEl = document.querySelector("[data-music-position]");
   var barEl = document.querySelector("[data-music-bar]");
+  var lyrics = {{ music.lyrics|tojson }};
+  var lyPrev = document.querySelector("[data-ly-prev]");
+  var lyCur = document.querySelector("[data-ly-cur]");
+  var lyNext = document.querySelector("[data-ly-next]");
+  var lastIdx = -2;
+  function idxAt(pos){
+    var lo = 0, hi = lyrics.length - 1, ans = -1;
+    while (lo <= hi){ var mid = (lo + hi) >> 1;
+      if (lyrics[mid].t <= pos){ ans = mid; lo = mid + 1; } else { hi = mid - 1; } }
+    return ans;
+  }
+  function updateLyrics(pos){
+    if (!lyCur || !lyrics.length) return;
+    var i = idxAt(pos);
+    if (i === lastIdx) return;
+    lastIdx = i;
+    lyPrev.textContent = i > 0 ? lyrics[i - 1].text : "";
+    lyCur.textContent  = i >= 0 ? lyrics[i].text : lyrics[0].text;
+    lyNext.textContent = (i + 1 < lyrics.length) ? lyrics[i + 1].text : "";
+  }
   function two(n){ return n < 10 ? "0" + n : "" + n; }
   function fmt(sec){
     sec = Math.max(0, Math.floor(sec || 0));
@@ -174,9 +217,18 @@
     if (timeEl) timeEl.textContent = text;
     if (posEl) posEl.textContent = text;
     if (barEl && duration > 0) barEl.style.width = Math.max(0, Math.min(100, pos / duration * 100)) + "%";
+    updateLyrics(pos);
   }
+  if (window.__mtick) clearInterval(window.__mtick);
+  if (window.__mend) clearTimeout(window.__mend);
   tick();
-  if (playing) setInterval(tick, 1000);
+  if (playing) window.__mtick = setInterval(tick, 1000);
+  if (playing && duration > 0) {                       // 歌一放完就主动让外层立刻拉新歌,不傻等下一轮
+    var remainMs = (startedAt + duration) * 1000 - Date.now();
+    window.__mend = setTimeout(function () {
+      if (window.parent && typeof window.parent.kdMusicEnded === "function") window.parent.kdMusicEnded();
+    }, Math.max(0, remainMs) + 300);
+  }
 })();
 </script>
 {% endif %}

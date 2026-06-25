@@ -252,6 +252,8 @@ def empty_music():
         "track_number": 0, "track_count": 0,   # 曲目序号 / 总数(可选)
         "loved": False,        # 是否喜欢(可选)
         "play_count": 0,       # 播放次数(可选)
+        "has_lyrics": False,   # 是否查到带时间轴歌词(仅 android 动态目标用;Kindle 永不显歌词)
+        "lyrics": [],          # [{t: 秒(float), text: 该行}] 按时间升序;空=无歌词→回退现状播放器
         "artwork_url": "",     # 封面 URL;空=无封面,模板显占位框
         "artwork_wall": [],    # [{url, album, artist, hash}] 无播放/暂停超时封面墙
         "artwork_wall_cols": 0, # 封面墙建议列数:0=无缓存,1/2/3/4/5 自适应

@@ -22,7 +22,7 @@ server:
   render_rotate: 270         # 渲染后旋转成竖屏写墨水屏(270=顺时针默认;90=逆时针;0=不转)
   render_grayscale: true
   render_interval: 30        # 多久重渲染一次看板图(秒;刷新时钟与已变数据,与采集解耦)
-  app_poll_interval: 5       # 安卓 App 活 HTML 每隔几秒拉一次最新页面(触控版;与 Kindle 出图无关)
+  app_poll_interval: 3       # 安卓 App 活 HTML 每隔几秒拉一次最新页面(触控版;与 Kindle 出图无关);音乐页歌曲结束时还会额外主动拉一次
   access_token: ""           # 设置页访问令牌;安装/首次启动自动生成(留空=不鉴权,不推荐)
 
 # 天气(和风天气 QWeather)——填了 key+location 才出天气
@@ -99,6 +99,7 @@ music:
   enabled: false
   interval: 5                # Mac Music agent 上报间隔(秒);建议 2~5
   pause_idle_after: 300      # 暂停超过多久进入专辑封面墙;0=关闭
+  lyrics_enabled: true       # 换歌自动联网查带时间轴歌词(手机/网页动态版滚动;Kindle 不显);查不到回退播放器
   artwork_cache_limit: 120   # 服务端最多缓存多少张历史专辑封面
   artwork_wall_count: 20     # 封面墙最多抽取多少张缓存封面
 

@@ -465,6 +465,20 @@ else { banner.textContent = T.no_pages || "还没启用任何页面,请先在设
 // 轮到 news 时整页重载(gotoPage)取当前一批,停留期间不再刷新,避免中途跳条。
 var NO_POLL = { news: 1 };
 polling = setInterval(function () { if (!NO_POLL[cur]) loadPage(cur, false); }, Math.max(2, CFG.interval || 5) * 1000);
+
+// 音乐页的歌一放完,iframe 内的页面会调这里 → 立刻拉一次、并在过渡期(最多 ~7s,覆盖 Mac 5s 上报窗口)
+// 里每 1.5s 拉一次,尽快换到下一首;过渡期一过自动停,平时不增加负载。
+var _mEndBurst = null, _mEndUntil = 0;
+window.kdMusicEnded = function () {
+  if (cur !== "music") return;
+  _mEndUntil = Date.now() + 7000;          // 每次"歌结束"信号都把过渡窗口顺延
+  loadPage("music", false);                // 立刻拉一次
+  if (_mEndBurst) return;                   // 已在快拉中,不重复起
+  _mEndBurst = setInterval(function () {
+    if (cur !== "music" || Date.now() >= _mEndUntil) { clearInterval(_mEndBurst); _mEndBurst = null; return; }
+    loadPage("music", false);
+  }, 1500);
+};
 </script>
 </body>
 </html>

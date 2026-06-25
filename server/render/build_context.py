@@ -257,6 +257,25 @@ def _music_wall_layout(items):
     return items[:20], 5, 4, "twenty"
 
 
+def _sanitize_lyrics(raw):
+    """歌词原始列表 → 干净的 [{t: float, text: str}],按 t 升序、丢弃坏行。
+    诚实降级:任何异常/空/非列表 → 返回 [](模板据此回退现状播放器)。"""
+    out = []
+    for ln in (raw or []):
+        if not isinstance(ln, dict):
+            continue
+        try:
+            t = float(ln.get("t"))
+        except (TypeError, ValueError):
+            continue
+        text = str(ln.get("text") or "").strip()
+        if t < 0 or not text:
+            continue
+        out.append({"t": round(t, 2), "text": text})
+    out.sort(key=lambda x: x["t"])
+    return out
+
+
 def _rel_time(ts, now, lang="zh"):
     """资讯发布时间 → 相对时间(本地化)。ts<=0 / 解析不出 → 空串。"""
     try:
@@ -659,8 +678,10 @@ def prep_context(now, cache, cfg=None):
         paused_for = int(max(0, now.timestamp() - state_since)) if st == "paused" and state_since else 0
         idle_wall = bool(st == "paused" and pause_idle_after > 0 and paused_for >= pause_idle_after)
         artwork_wall, wall_cols, wall_rows, wall_mode = _music_wall_layout(mraw.get("artwork_wall", []) or [])
+        lyrics = _sanitize_lyrics(mraw.get("lyrics"))
         music.update({
             "available": True, "has_track": True, "state": st,
+            "has_lyrics": bool(lyrics), "lyrics": lyrics,
             "state_text": MUSIC_STATE[lang].get(st, MUSIC_STATE[lang]["stopped"]),
             "name": mraw.get("name") or "--",
             "artist": mraw.get("artist", "") or "",
