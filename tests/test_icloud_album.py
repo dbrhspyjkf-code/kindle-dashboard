@@ -49,3 +49,64 @@ def test_build_photo_list():
     assets = {"cks_big": "https://h/p"}
     out = ia.build_photo_list({"photos_parsed": stream}, assets) if False else ia.build_photo_list(stream, assets)
     assert out == [{"guid": "g1", "checksum": "cks_big", "url": "https://h/p"}]
+
+
+class _FakeResp:
+    def __init__(self, status=200, payload=None, headers=None):
+        self.status_code = status
+        self._payload = payload or {}
+        self.headers = headers or {}
+    def json(self):
+        return self._payload
+
+
+class _FakeClient:
+    """按 url 路径返回预设响应,记录调用。"""
+    def __init__(self, routes):
+        self.routes = routes          # path 子串 -> _FakeResp 或 list(按序弹出)
+        self.calls = []
+    def post(self, url, json=None, headers=None, timeout=None):
+        self.calls.append(url)
+        for key, resp in self.routes.items():
+            if key in url:
+                if isinstance(resp, list):
+                    return resp.pop(0)
+                return resp
+        return _FakeResp(404, {})
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+
+def test_fetch_album_photos_happy():
+    stream_payload = {"photos": [
+        {"photoGuid": "g1", "derivatives": {"2": {"checksum": "c1", "width": "2000", "height": "1500"}}},
+    ]}
+    asset_payload = {"items": {"c1": {"url_location": "h.com", "url_path": "/p?o=1"}}}
+    fake = _FakeClient({
+        "webstream": _FakeResp(200, stream_payload),
+        "webasseturls": _FakeResp(200, asset_payload),
+    })
+    out = ia.fetch_album_photos("https://www.icloud.com/sharedalbum/#B0X", client=fake)
+    assert out == [{"guid": "g1", "checksum": "c1", "url": "https://h.com/p?o=1"}]
+
+
+def test_fetch_album_photos_330_redirect():
+    stream_payload = {"photos": [
+        {"photoGuid": "g1", "derivatives": {"2": {"checksum": "c1", "width": "10", "height": "10"}}},
+    ]}
+    asset_payload = {"items": {"c1": {"url_location": "h.com", "url_path": "/p"}}}
+    fake = _FakeClient({
+        "webstream": [
+            _FakeResp(330, {}, {"X-Apple-MMe-Host": "p33-sharedstreams.icloud.com"}),
+            _FakeResp(200, stream_payload),
+        ],
+        "webasseturls": _FakeResp(200, asset_payload),
+    })
+    out = ia.fetch_album_photos("https://www.icloud.com/sharedalbum/#B0X", client=fake)
+    assert out and out[0]["url"] == "https://h.com/p"
+    assert any("p33-sharedstreams" in u for u in fake.calls)   # 用了重定向后的 host
+
+
+def test_fetch_album_photos_bad_url():
+    assert ia.fetch_album_photos("", client=_FakeClient({})) == []
+    assert ia.fetch_album_photos("https://x.com/no-hash", client=_FakeClient({})) == []

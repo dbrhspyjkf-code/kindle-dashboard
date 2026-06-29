@@ -10,8 +10,6 @@ host 由 token 首字符定分区,首次可能 330 重定向到正确分区(见 
 import string
 import httpx
 
-_BASE = ".icloud-content.com"  # 兜底,正常用 url_location 给的主机
-
 
 def parse_token(url: str) -> str:
     """取 # 后 token(到 ? 或末尾)。无 # 返回空。"""
@@ -73,3 +71,45 @@ def build_photo_list(stream: list, assets: dict) -> list:
         if cks and url:
             out.append({"guid": s.get("guid"), "checksum": cks, "url": url})
     return out
+
+
+def _post(client, host, token, endpoint, body):
+    """构建 POST 请求到 iCloud 相册分区服务。"""
+    url = f"https://{host}/{token}/sharedstreams/{endpoint}"
+    return client.post(url, json=body, headers={"Content-Type": "text/plain"}, timeout=15)
+
+
+def fetch_album_photos(shared_url: str, *, client=None) -> list:
+    """端到端拉取公开共享相册照片列表。任何失败 → [](诚实降级)。"""
+    token = parse_token(shared_url)
+    if not token:
+        return []
+    own = client is None
+    client = client or httpx.Client(follow_redirects=False)
+    try:
+        host = partition_host(token)
+        # webstream:首发可能 330 重定向到正确分区
+        r = _post(client, host, token, "webstream", {"streamCtag": None})
+        if getattr(r, "status_code", 200) == 330:
+            host = r.headers.get("X-Apple-MMe-Host") or host
+            r = _post(client, host, token, "webstream", {"streamCtag": None})
+        if r.status_code != 200:
+            return []
+        stream = parse_webstream(r.json())
+        if not stream:
+            return []
+        guids = [s["guid"] for s in stream]
+        ra = _post(client, host, token, "webasseturls", {"photoGuids": guids})
+        if ra.status_code != 200:
+            return []
+        assets = parse_asset_urls(ra.json())
+        return build_photo_list(stream, assets)
+    except Exception as e:
+        print(f"[icloud_album] fetch failed: {e}")
+        return []
+    finally:
+        if own:
+            try:
+                client.close()
+            except Exception:
+                pass
