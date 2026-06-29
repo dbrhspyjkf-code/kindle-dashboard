@@ -623,6 +623,30 @@ def prep_context(now, cache, cfg=None):
         } for it in picked]
         news["index"] = start + 1     # 本批起始序号(显示"第 start+1 起 / nn 条")
 
+    # ---- Album(iCloud 共享相册,无状态时间分桶轮播,选中 1 张转 data URI) ----
+    import base64 as _b64
+    from server.sources.rss import pick_index as _pick
+    album_cfg = (cfg or {}).get("album", {}) or {}
+    photos = cache.get("album_photos") or []
+    an = len(photos)
+    album = {"photo": {"src": "", "guid": ""}, "index": 0, "total": an}
+    if an:
+        from server.config import schema as _schema
+        order = album_cfg.get("order", "sequential")
+        mode = "time" if order == "sequential" else "random"
+        page_interval = max(5, int((cfg.get("server", {}) or {}).get("page_interval", 20) or 20))
+        n_pages = max(1, len(_schema.active_pages(cfg)))
+        period = page_interval * n_pages
+        idx = _pick(an, mode, now.timestamp(), period)
+        pick = photos[idx % an]
+        try:
+            with open(pick.get("path", ""), "rb") as f:
+                b64 = _b64.b64encode(f.read()).decode()
+            album["photo"] = {"src": f"data:image/png;base64,{b64}", "guid": pick.get("guid", "")}
+            album["index"] = idx + 1
+        except Exception:
+            pass   # 读图失败 → 保持空 photo(降级)
+
     # ---- Download(qB + Transmission 合并;adapter 给原始值,这里格式化 + 状态本地化) ----
     draw = cache.get("download")
     dl_state = DL_STATE["en"] if en else DL_STATE["zh"]
@@ -744,4 +768,5 @@ def prep_context(now, cache, cfg=None):
         "news": news,
         "download": download,
         "music": music,
+        "album": album,
     }
