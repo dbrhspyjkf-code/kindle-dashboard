@@ -1,5 +1,6 @@
 """iCloud 公开共享相册解析验证。可直接 python3 跑,也兼容 pytest。"""
-import os, sys
+import os
+import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 from server.sources import icloud_album as ia  # noqa: E402
@@ -110,3 +111,28 @@ def test_fetch_album_photos_330_redirect():
 def test_fetch_album_photos_bad_url():
     assert ia.fetch_album_photos("", client=_FakeClient({})) == []
     assert ia.fetch_album_photos("https://x.com/no-hash", client=_FakeClient({})) == []
+
+
+def test_collect_no_url_returns_none():
+    assert ia.collect({"album": {"shared_url": ""}}) is None
+    assert ia.collect({}) is None
+
+
+def test_collect_processes_and_caches(tmp_path, monkeypatch):
+    # mock 拉列表
+    monkeypatch.setattr(ia, "fetch_album_photos",
+                        lambda url, **k: [{"guid": "g1", "checksum": "c", "url": "https://h/p"}])
+    # mock 下载
+    from PIL import Image
+    import io
+    def _fake_dl(url):
+        buf = io.BytesIO(); Image.new("RGB", (400, 300)).save(buf, "PNG"); return buf.getvalue()
+    monkeypatch.setattr(ia, "_download", _fake_dl)
+    # 缓存目录指向 tmp
+    monkeypatch.setattr(ia, "_cache_dir", lambda cfg: str(tmp_path))
+    cfg = {"album": {"shared_url": "https://www.icloud.com/sharedalbum/#B0X", "max_photos": 10},
+           "server": {"kindle_model": "base"}}
+    out = ia.collect(cfg)
+    assert out and len(out["album_photos"]) == 1
+    assert os.path.exists(out["album_photos"][0]["path"])
+    assert out["album_photos"][0]["guid"] == "g1"

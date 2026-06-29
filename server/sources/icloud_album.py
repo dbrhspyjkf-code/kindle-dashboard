@@ -7,8 +7,11 @@
 host 由 token 首字符定分区,首次可能 330 重定向到正确分区(见 fetch_album_photos)。
 本模块只负责取数+解析;下载/抖动在 image_proc,轮播在 build_context。
 """
+import os
 import string
 import httpx
+from server.sources import album_image
+from server.config import schema
 
 
 def parse_token(url: str) -> str:
@@ -113,3 +116,50 @@ def fetch_album_photos(shared_url: str, *, client=None) -> list:
                 client.close()
             except Exception:
                 pass
+
+
+def _cache_dir(cfg) -> str:
+    data_dir = os.environ.get("KINDLE_DATA_DIR",
+                              os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+                                  os.path.abspath(__file__)))), "data"))
+    return os.path.join(data_dir, "album")
+
+
+def _download(url: str) -> bytes:
+    with httpx.Client(timeout=20, follow_redirects=True) as c:
+        return c.get(url).content
+
+
+def collect(cfg: dict):
+    """拉公开相册 → 逐张下载+处理+缓存。无链接 None;全失败 None(降级保留上帧)。"""
+    acfg = (cfg or {}).get("album", {}) or {}
+    url = (acfg.get("shared_url") or "").strip()
+    if not url:
+        return None
+    photos = fetch_album_photos(url)
+    if not photos:
+        return None
+    try:
+        max_n = int(acfg.get("max_photos", 200) or 200)
+    except (TypeError, ValueError):
+        max_n = 200
+    size = schema.resolve_render_size((cfg or {}).get("server", {}) or {})
+    cache_dir = _cache_dir(cfg)
+    out = []
+    for p in photos[:max_n]:
+        guid = p.get("guid")
+        cached = os.path.join(cache_dir, album_image.cache_filename(guid, size))
+        if os.path.exists(cached):
+            out.append({"guid": guid, "path": cached})
+            continue
+        try:
+            raw = _download(p["url"])
+        except Exception as e:
+            print(f"[icloud_album] download failed {guid}: {e}")
+            continue
+        path = album_image.process_to_cache(raw, guid, size, cache_dir)
+        if path:
+            out.append({"guid": guid, "path": path})
+    if not out:
+        return None
+    return {"album_photos": out}
