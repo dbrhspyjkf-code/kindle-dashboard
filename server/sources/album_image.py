@@ -4,15 +4,17 @@ Kindle 是灰度屏,彩色照片必须抖动才不糊。文件名带 guid+尺寸
 """
 import io
 import os
+import re
 from PIL import Image
 
 _VERSION = "v1"     # 处理算法版本;改算法时 +1 让旧缓存失效
 
 
 def cache_filename(guid: str, size) -> str:
-    """纯函数:根据 guid 和尺寸计算缓存文件名。"""
+    """纯函数:根据 guid 和尺寸计算缓存文件名。guid 净化为安全字符集,防路径遍历。"""
+    safe_guid = re.sub(r"[^A-Za-z0-9_-]", "", guid)
     w, h = size
-    return f"{guid}_{w}x{h}_{_VERSION}.png"
+    return f"{safe_guid}_{w}x{h}_{_VERSION}.png"
 
 
 def _fit_center_crop(im, size):
@@ -63,4 +65,8 @@ def process_to_cache(raw: bytes, guid: str, size, cache_dir: str):
         return path
     except Exception as e:
         print(f"[album_image] process failed {guid}: {e}")
+        try:
+            os.remove(tmp)          # 清理可能遗留的 .tmp 文件
+        except Exception:
+            pass
         return None

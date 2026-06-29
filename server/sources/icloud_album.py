@@ -162,4 +162,15 @@ def collect(cfg: dict):
             out.append({"guid": guid, "path": path})
     if not out:
         return None
+    # 按当前 guid 集合清理已删除照片的孤儿缓存文件,防止磁盘无限增长
+    try:
+        keep = {os.path.basename(p["path"]) for p in out}
+        for fname in os.listdir(cache_dir):
+            if fname.endswith(".png") and fname not in keep:
+                try:
+                    os.remove(os.path.join(cache_dir, fname))
+                except Exception:
+                    pass
+    except Exception:
+        pass
     return {"album_photos": out}

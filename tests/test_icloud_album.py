@@ -136,3 +136,44 @@ def test_collect_processes_and_caches(tmp_path, monkeypatch):
     assert out and len(out["album_photos"]) == 1
     assert os.path.exists(out["album_photos"][0]["path"])
     assert out["album_photos"][0]["guid"] == "g1"
+
+
+def test_collect_prunes_orphan_cache_files(tmp_path, monkeypatch):
+    """collect 成功后应删除缓存目录中不属于当前相册的孤儿 .png 文件。"""
+    # 预先放一个孤儿文件
+    orphan = tmp_path / "old_800x600_v1.png"
+    orphan.write_bytes(b"stale")
+
+    monkeypatch.setattr(ia, "fetch_album_photos",
+                        lambda url, **k: [{"guid": "g2", "checksum": "c2", "url": "https://h/p"}])
+    from PIL import Image
+    import io
+    def _fake_dl(url):
+        buf = io.BytesIO(); Image.new("RGB", (400, 300)).save(buf, "PNG"); return buf.getvalue()
+    monkeypatch.setattr(ia, "_download", _fake_dl)
+    monkeypatch.setattr(ia, "_cache_dir", lambda cfg: str(tmp_path))
+
+    cfg = {"album": {"shared_url": "https://www.icloud.com/sharedalbum/#B0X", "max_photos": 10},
+           "server": {"kindle_model": "base"}}
+    out = ia.collect(cfg)
+    assert out is not None
+    # 孤儿文件已被删除
+    assert not orphan.exists()
+    # 当前照片的缓存文件仍在
+    assert os.path.exists(out["album_photos"][0]["path"])
+
+
+def test_collect_no_prune_when_returns_none(tmp_path, monkeypatch):
+    """collect 返回 None(拉取失败)时,不应删除缓存目录中已有的文件。"""
+    existing = tmp_path / "old_800x600_v1.png"
+    existing.write_bytes(b"last_good")
+
+    monkeypatch.setattr(ia, "fetch_album_photos", lambda url, **k: [])
+    monkeypatch.setattr(ia, "_cache_dir", lambda cfg: str(tmp_path))
+
+    cfg = {"album": {"shared_url": "https://www.icloud.com/sharedalbum/#B0X"},
+           "server": {"kindle_model": "base"}}
+    result = ia.collect(cfg)
+    assert result is None
+    # 已有缓存文件未被删除
+    assert existing.exists()
