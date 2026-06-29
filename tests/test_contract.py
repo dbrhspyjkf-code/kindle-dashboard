@@ -37,6 +37,21 @@ def test_battery_has_flag():
     assert ctx["battery"]["has"] is False
 
 
+def test_album_page_registered():
+    assert "album" in contract.PAGES
+    assert contract.PAGES["album"]["needs"] == ["album"]
+
+
+def test_empty_album_shape():
+    a = contract.empty_album()
+    assert a["photo"]["src"] == ""
+    assert a["total"] == 0
+
+
+def test_empty_context_has_album():
+    assert "album" in contract.empty_context()
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
