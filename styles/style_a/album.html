@@ -1,0 +1,45 @@
+<!DOCTYPE html><html lang="zh"><head><meta charset="UTF-8"><style>
+{{ css|safe }}
+/* 相册页:iCloud 共享相册轮播。满屏单张照片 + 细相框，降级显占位。
+   照片以 data URI 内嵌，Kindle file:// 环境无需网络。 */
+.album-main{flex:1;min-height:0;overflow:hidden;display:flex;align-items:stretch;}
+.album-frame{flex:1;border:2px solid var(--ink);padding:8px;background:#fff;
+  display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+/* 角落序号徽章 */
+.album-caption{position:absolute;right:12px;bottom:12px;background:#fff;
+  border:1.5px solid var(--ink);padding:2px 8px;font-size:13px;font-weight:700;
+  color:var(--ink2);letter-spacing:.5px;}
+/* 实际照片:满框覆盖 */
+.album-photo{display:block;width:100%;height:100%;object-fit:cover;
+  filter:grayscale(1) contrast(1.1);}
+/* 降级占位 */
+.album-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--ink3);gap:14px;}
+.album-empty .big{font-family:'Noto Serif CJK SC','Songti SC',serif;font-size:36px;
+  font-weight:800;color:var(--ink2);}
+.album-empty .hint{font-size:13px;font-weight:600;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--ink4);}
+</style></head><body>
+<div class="masthead">
+  <div><div class="kicker">PHOTO</div><div class="title">相册</div></div>
+  <div class="meta">{{ time_hm }}</div>
+</div>
+<main class="album-main">
+  <div class="album-frame">
+    {% if album.photo.src %}
+      <img class="album-photo" src="{{ album.photo.src }}" alt="">
+      <div class="album-caption">{{ album.index }} / {{ album.total }}</div>
+    {% else %}
+      <div class="album-empty">
+        <div class="big">相册同步中…</div>
+        <div class="hint">iCloud Shared Album</div>
+      </div>
+    {% endif %}
+  </div>
+</main>
+<div class="footer">
+  <span>{{ time_hm }}</span>
+  <span>{% if album.photo.src %}{{ album.index }} / {{ album.total }}{% endif %}</span>
+  <span>{{ page_no }} / {{ page_total }}</span>
+</div>
+</body></html>

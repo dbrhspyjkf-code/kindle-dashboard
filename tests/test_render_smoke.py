@@ -77,6 +77,22 @@ def test_render_every_style_every_page_smoke():
     assert checked >= len(styles.list_styles()), "渲染页数异常偏少"
 
 
+def test_style_a_album_renders():
+    ctx = empty_context()
+    assert styles.has_page("style_a", "album")
+    html = styles.render_page("style_a", "album", ctx)   # 降级(空 src)也要出 HTML 不报错
+    assert "<" in html and len(html) > 50
+
+
+def test_style_a_album_renders_with_photo():
+    ctx = empty_context()
+    ctx["album"]["photo"]["src"] = "data:image/png;base64,iVBORw0KGgo="
+    ctx["album"]["total"] = 3
+    ctx["album"]["index"] = 1
+    html = styles.render_page("style_a", "album", ctx)
+    assert "data:image/png;base64" in html
+
+
 if __name__ == "__main__":
     test_style_a_present()
     print("  ✓ test_style_a_present")
@@ -84,4 +100,8 @@ if __name__ == "__main__":
     print("  ✓ test_render_all_pages_smoke")
     test_render_every_style_every_page_smoke()
     print("  ✓ test_render_every_style_every_page_smoke")
+    test_style_a_album_renders()
+    print("  ✓ test_style_a_album_renders")
+    test_style_a_album_renders_with_photo()
+    print("  ✓ test_style_a_album_renders_with_photo")
     print("\nok")
