@@ -271,6 +271,31 @@ SCHEMA: list = [
     ),
 
     Section(
+        key="album", label="相册(iCloud 共享)", page="album",
+        help="把一个 iCloud 公开共享相册显示成轮播相框。iPhone:相册 → 共享相册 → 右上设置 "
+             "→ 打开「公开网站」→ 复制链接粘到下面。不需要 Apple 登录,链接清空则关闭此页。",
+        label_en="Album (iCloud Shared)",
+        help_en="Show an iCloud public shared album as a rotating photo frame. On iPhone: Photos "
+                "→ Shared Album → settings → enable 'Public Website' → copy the link here. "
+                "No Apple sign-in; clear the link to hide this page.",
+        enable_when=["shared_url"],
+        fields=[
+            Field("shared_url", "公开相册链接", "str", "",
+                  help="形如 https://www.icloud.com/sharedalbum/#B0...",
+                  label_en="Public album URL"),
+            Field("sync_interval", "同步间隔(秒)", "int", 3600,
+                  help="多久拉一次照片列表。相册变化慢,建议 ≥3600。",
+                  label_en="Sync interval (s)"),
+            Field("order", "轮播顺序", "enum", "sequential",
+                  options=[("sequential", "顺序"), ("random", "随机")],
+                  label_en="Order", help_en="sequential | random"),
+            Field("max_photos", "缓存上限(张)", "int", 200,
+                  help="最多缓存多少张处理后的照片。",
+                  label_en="Max cached photos"),
+        ],
+    ),
+
+    Section(
         key="downloaders", label="下载器", page="download",
         help="接入 qBittorrent / Transmission(可多台),把所有种子合并显示成一屏下载看板。"
              "填了至少一个才出此页;清空则隐藏。账号密码只存本地。",
@@ -510,8 +535,9 @@ def active_pages(config: dict) -> list:
         "news": enabled.get("news"),                    # 订阅源非空即出页(无凭据依赖)
         "download": enabled.get("downloaders"),         # 下载器列表非空即出页
         "music": enabled.get("music"),                  # 启用即出页(空状态也显示,无外部凭据依赖)
+        "album": enabled.get("album"),                  # 填了公开链接即出页
     }
-    default_order = ["home", "ai", "news", "music", "download", "device", "ha", "printer"]
+    default_order = ["home", "album", "ai", "news", "music", "download", "device", "ha", "printer"]
     chosen = config.get("display", {}).get("pages") or []
     hidden = config.get("display", {}).get("hidden_pages") or []
     base = chosen if chosen else default_order

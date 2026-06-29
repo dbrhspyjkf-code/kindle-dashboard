@@ -135,6 +135,24 @@ def test_to_json_serializable():
     json.dumps(schema.to_json())  # 不抛异常即可给前端
 
 
+def test_album_section_present():
+    keys = [s.key for s in schema.SCHEMA]
+    assert "album" in keys
+    sec = next(s for s in schema.SCHEMA if s.key == "album")
+    assert sec.page == "album"
+    assert "shared_url" in [f.key for f in sec.fields]
+
+
+def test_album_active_when_url_set():
+    cfg = {"album": {"shared_url": "https://www.icloud.com/sharedalbum/#B0X"}}
+    assert "album" in schema.active_pages(cfg)
+
+
+def test_album_hidden_when_no_url():
+    cfg = {"album": {"shared_url": ""}}
+    assert "album" not in schema.active_pages(cfg)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

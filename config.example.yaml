@@ -80,6 +80,14 @@ news:
   rotate: random             # 轮播方式:random 随机 / time 按时间(新→旧)
   interval: 1800             # 多久从 RSS 拉一次(秒);资讯变化慢,建议 ≥1800
 
+# 相册(iCloud 共享)——把 iCloud 公开共享相册显示成轮播相框;链接清空则关闭此页
+# iPhone:相册 → 共享相册 → 右上设置 → 打开「公开网站」→ 复制链接粘到 shared_url
+album:
+  shared_url: ""               # 公开相册链接,形如 https://www.icloud.com/sharedalbum/#B0...
+  sync_interval: 3600          # 多久拉一次照片列表(秒);相册变化慢,建议 ≥3600
+  order: sequential            # 轮播顺序:sequential 顺序 / random 随机
+  max_photos: 200              # 最多缓存多少张处理后的照片
+
 # 下载器(qBittorrent / Transmission,可多台)——填了至少一个才出「下载」页
 # 所有种子合并显示;账号密码只存本地。手填示例(去掉注释填进 clients):
 downloaders:
