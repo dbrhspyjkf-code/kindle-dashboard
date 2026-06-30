@@ -26,7 +26,7 @@ from server.config import schema
 from server.config.loader import ConfigManager
 from server.render import styles, pipeline, contract
 from server.render.build_context import prep_context
-from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader, lyrics, icloud_album
+from server.sources import weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader, lyrics, local_album
 from server.sources.ccusage_merge import merge_all_devices
 from server import actions
 
@@ -92,7 +92,7 @@ SOURCE_INTERVAL = {"weather":       ("weather", "interval", 600),
                    "mstodo":        ("mstodo", "interval", 600),
                    "rss":           ("news", "interval", 1800),
                    "downloader":    ("downloaders", "interval", 15),
-                   "icloud_album":  ("album", "sync_interval", 3600)}
+                   "local_album":   ("album", "sync_interval", 3600)}
 # 渲染间隔放在「服务」段
 RENDER_INTERVAL = ("server", "render_interval", 30)
 
@@ -172,7 +172,7 @@ CURRENT = {"style": None}
 page_state = {"i": 0, "last": 0.0}
 legacy_page_state = {"i": 0, "last": 0.0}
 
-SOURCES = (weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader, icloud_album)
+SOURCES = (weather, ccusage_cli, homeassistant, metrics, mstodo, rss, downloader, local_album)
 CONFIG_SAVE_SYNC_SOURCES = (weather,)
 
 

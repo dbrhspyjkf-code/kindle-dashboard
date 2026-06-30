@@ -140,16 +140,16 @@ def test_album_section_present():
     assert "album" in keys
     sec = next(s for s in schema.SCHEMA if s.key == "album")
     assert sec.page == "album"
-    assert "shared_url" in [f.key for f in sec.fields]
+    assert "folder_path" in [f.key for f in sec.fields]
 
 
 def test_album_active_when_url_set():
-    cfg = {"album": {"shared_url": "https://www.icloud.com/sharedalbum/#B0X"}}
+    cfg = {"album": {"folder_path": "/home/user/Pictures/Kindle"}}
     assert "album" in schema.active_pages(cfg)
 
 
 def test_album_hidden_when_no_url():
-    cfg = {"album": {"shared_url": ""}}
+    cfg = {"album": {"folder_path": ""}}
     assert "album" not in schema.active_pages(cfg)
 
 

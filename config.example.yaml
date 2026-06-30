@@ -80,11 +80,11 @@ news:
   rotate: random             # 轮播方式:random 随机 / time 按时间(新→旧)
   interval: 1800             # 多久从 RSS 拉一次(秒);资讯变化慢,建议 ≥1800
 
-# 相册(iCloud 共享)——把 iCloud 公开共享相册显示成轮播相框;链接清空则关闭此页
-# iPhone:相册 → 共享相册 → 右上设置 → 打开「公开网站」→ 复制链接粘到 shared_url
+# 相册(本地文件夹)——指定本地图片文件夹,自动处理为 E-ink 格式并轮播;路径清空则关闭此页
+# 支持 JPG/PNG/WEBP/BMP/GIF/TIFF;可用 ~/... 路径
 album:
-  shared_url: ""               # 公开相册链接,形如 https://www.icloud.com/sharedalbum/#B0...
-  sync_interval: 3600          # 多久拉一次照片列表(秒);相册变化慢,建议 ≥3600
+  folder_path: ""              # 图片文件夹路径,如 ~/Pictures/Kindle
+  sync_interval: 3600          # 多久重新扫描一次文件夹(秒)
   order: sequential            # 轮播顺序:sequential 顺序 / random 随机
   max_photos: 200              # 最多缓存多少张处理后的照片
 

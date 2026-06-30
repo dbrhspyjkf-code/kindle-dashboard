@@ -271,20 +271,20 @@ SCHEMA: list = [
     ),
 
     Section(
-        key="album", label="相册(iCloud 共享)", page="album",
-        help="把一个 iCloud 公开共享相册显示成轮播相框。iPhone:相册 → 共享相册 → 右上设置 "
-             "→ 打开「公开网站」→ 复制链接粘到下面。不需要 Apple 登录,链接清空则关闭此页。",
-        label_en="Album (iCloud Shared)",
-        help_en="Show an iCloud public shared album as a rotating photo frame. On iPhone: Photos "
-                "→ Shared Album → settings → enable 'Public Website' → copy the link here. "
-                "No Apple sign-in; clear the link to hide this page.",
-        enable_when=["shared_url"],
+        key="album", label="相册(本地文件夹)", page="album",
+        help="指定一个本地文件夹,文件夹内的图片会自动处理成 E-ink 格式并在 Kindle 上轮播。"
+             "支持 JPG/PNG/WEBP/BMP/GIF/TIFF。文件夹路径清空则关闭此页。",
+        label_en="Album (Local Folder)",
+        help_en="Point to a local folder; images inside are processed to E-ink grayscale and "
+                "shown as a rotating photo frame on the Kindle. "
+                "Supports JPG/PNG/WEBP/BMP/GIF/TIFF. Clear the path to hide this page.",
+        enable_when=["folder_path"],
         fields=[
-            Field("shared_url", "公开相册链接", "str", "",
-                  help="形如 https://www.icloud.com/sharedalbum/#B0...",
-                  label_en="Public album URL"),
+            Field("folder_path", "图片文件夹路径", "str", "",
+                  help="绝对路径或 ~/... 相对家目录,如 ~/Pictures/Kindle",
+                  label_en="Image folder path"),
             Field("sync_interval", "同步间隔(秒)", "int", 3600,
-                  help="多久拉一次照片列表。相册变化慢,建议 ≥3600。",
+                  help="多久重新扫描一次文件夹。",
                   label_en="Sync interval (s)"),
             Field("order", "轮播顺序", "enum", "sequential",
                   options=[("sequential", "顺序"), ("random", "随机")],
