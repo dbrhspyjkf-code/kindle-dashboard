@@ -74,6 +74,13 @@ def test_interval_too_small_falls_back(tmp_path):
     assert "INTERVAL=20" in dump
 
 
+def test_clear_every_written(tmp_path):
+    """conf 总会写 CLEAR_EVERY=1(每次换图全刷,消残影),防止手动改的值被重装覆盖丢失。"""
+    r, dump = _run(tmp_path, "127.0.0.1", "http://x:8585", "20")
+    assert r.returncode == 0, r.stderr
+    assert "CLEAR_EVERY=1" in dump
+
+
 def test_alt_line_written(tmp_path):
     """conf 总会写 SERVER_URL_ALT 行:macOS 探测到 .local 则非空,本测试在 Linux 跑(非
     Darwin 探测不到)应为空值行,start.sh 用 ${SERVER_URL_ALT:-} 安全处理、不触发轮换、不退化。"""
