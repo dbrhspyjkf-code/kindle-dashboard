@@ -120,6 +120,7 @@ ssh $SSHOPT root@"$KINDLE_IP" "
   echo 'SERVER_URL=$SERVER_URL' > /mnt/us/dashboard.conf
   echo 'SERVER_URL_ALT=$SERVER_URL_ALT' >> /mnt/us/dashboard.conf
   echo 'INTERVAL=$INTERVAL' >> /mnt/us/dashboard.conf
+  echo 'CLEAR_EVERY=1' >> /mnt/us/dashboard.conf
   chmod +x /mnt/us/start.sh /mnt/us/stop.sh
   /usr/sbin/mntroot rw 2>/dev/null || true
   grep -v '/mnt/us/start.sh' /etc/crontab/root > /tmp/cr.tmp 2>/dev/null && mv /tmp/cr.tmp /etc/crontab/root
