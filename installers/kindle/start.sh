@@ -91,9 +91,15 @@ fbink -c -f
 fbink -g file=/mnt/us/frame.png -W GC16 -f
 
 # 5. 主循环 + WiFi 看门狗
+# 运行时段 7:00-24:00;00:00-07:00 不刷新画面(省电/减少 e-ink 损耗),但循环本身
+# 不退出,WiFi/SSH 保持可连,过了 7:00 自动恢复刷新,无需重启。
 count=0; fail=0
 while true; do
     sleep "$INTERVAL"
+    hour=$(date +%H 2>/dev/null)
+    case "$hour" in
+        0[0-6]) continue ;;   # 00~06 点,跳过本次刷新
+    esac
     curl -s -m 10 "$BASE/kindle/frame.png" -o /mnt/us/frame_new.png
     if [ -s /mnt/us/frame_new.png ]; then
         mv /mnt/us/frame_new.png /mnt/us/frame.png
