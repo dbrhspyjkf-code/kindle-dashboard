@@ -80,6 +80,14 @@ news:
   rotate: random             # 轮播方式:random 随机 / time 按时间(新→旧)
   interval: 1800             # 多久从 RSS 拉一次(秒);资讯变化慢,建议 ≥1800
 
+# 相册(本地文件夹)——指定本地图片文件夹,自动处理为 E-ink 格式并轮播;路径清空则关闭此页
+# 支持 JPG/PNG/WEBP/BMP/GIF/TIFF;可用 ~/... 路径
+album:
+  folder_path: ""              # 图片文件夹路径,如 ~/Pictures/Kindle
+  sync_interval: 3600          # 多久重新扫描一次文件夹(秒)
+  order: sequential            # 轮播顺序:sequential 顺序 / random 随机
+  max_photos: 200              # 最多缓存多少张处理后的照片
+
 # 下载器(qBittorrent / Transmission,可多台)——填了至少一个才出「下载」页
 # 所有种子合并显示;账号密码只存本地。手填示例(去掉注释填进 clients):
 downloaders:

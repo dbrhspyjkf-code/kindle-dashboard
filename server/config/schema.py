@@ -271,6 +271,31 @@ SCHEMA: list = [
     ),
 
     Section(
+        key="album", label="相册(本地文件夹)", page="album",
+        help="指定一个本地文件夹,文件夹内的图片会自动处理成 E-ink 格式并在 Kindle 上轮播。"
+             "支持 JPG/PNG/WEBP/BMP/GIF/TIFF。文件夹路径清空则关闭此页。",
+        label_en="Album (Local Folder)",
+        help_en="Point to a local folder; images inside are processed to E-ink grayscale and "
+                "shown as a rotating photo frame on the Kindle. "
+                "Supports JPG/PNG/WEBP/BMP/GIF/TIFF. Clear the path to hide this page.",
+        enable_when=["folder_path"],
+        fields=[
+            Field("folder_path", "图片文件夹路径", "str", "",
+                  help="绝对路径或 ~/... 相对家目录,如 ~/Pictures/Kindle",
+                  label_en="Image folder path"),
+            Field("sync_interval", "同步间隔(秒)", "int", 3600,
+                  help="多久重新扫描一次文件夹。",
+                  label_en="Sync interval (s)"),
+            Field("order", "轮播顺序", "enum", "sequential",
+                  options=[("sequential", "顺序"), ("random", "随机")],
+                  label_en="Order", help_en="sequential | random"),
+            Field("max_photos", "缓存上限(张)", "int", 200,
+                  help="最多缓存多少张处理后的照片。",
+                  label_en="Max cached photos"),
+        ],
+    ),
+
+    Section(
         key="downloaders", label="下载器", page="download",
         help="接入 qBittorrent / Transmission(可多台),把所有种子合并显示成一屏下载看板。"
              "填了至少一个才出此页;清空则隐藏。账号密码只存本地。",
@@ -510,8 +535,9 @@ def active_pages(config: dict) -> list:
         "news": enabled.get("news"),                    # 订阅源非空即出页(无凭据依赖)
         "download": enabled.get("downloaders"),         # 下载器列表非空即出页
         "music": enabled.get("music"),                  # 启用即出页(空状态也显示,无外部凭据依赖)
+        "album": enabled.get("album"),                  # 填了公开链接即出页
     }
-    default_order = ["home", "ai", "news", "music", "download", "device", "ha", "printer"]
+    default_order = ["home", "album", "ai", "news", "music", "download", "device", "ha", "printer"]
     chosen = config.get("display", {}).get("pages") or []
     hidden = config.get("display", {}).get("hidden_pages") or []
     base = chosen if chosen else default_order

@@ -26,6 +26,7 @@ PAGES = {
     "news":    {"title": "资讯",   "section": "news",    "needs": ["news"]},
     "download":{"title": "下载",   "section": "download","needs": ["downloaders"]},
     "music":   {"title": "音乐",   "section": "music",   "needs": ["music"]},
+    "album":   {"title": "相册",   "section": "album",   "needs": ["album"]},
 }
 
 # 降级占位符:数字类用 0,文本类用 "--",列表类用 []。
@@ -263,6 +264,17 @@ def empty_music():
     }
 
 
+def empty_album():
+    """相册页:轮播选中的 1 张照片。未配链接/拉不到 → src 空,该页隐藏。
+    photo.src 是处理后照片的 base64 data URI(Kindle 出图内嵌,与 music 封面墙同理)。
+    """
+    return {
+        "photo": {"src": "", "guid": ""},   # 当前展示的照片(data URI)
+        "index": 0,                          # 当前序号(从 1 起,给模板显示"第 x 张")
+        "total": 0,                          # 相册照片总数
+    }
+
+
 def empty_context():
     """完整的降级上下文:所有页字段齐备、全为占位值。
     预览无数据、数据源未配置、采集失败时用它兜底,保证渲染出图不报错。"""
@@ -275,4 +287,5 @@ def empty_context():
     ctx["news"] = empty_news()
     ctx["download"] = empty_download()
     ctx["music"] = empty_music()
+    ctx["album"] = empty_album()
     return ctx

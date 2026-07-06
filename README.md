@@ -247,6 +247,7 @@ docker compose up -d --build     # 重建(代码更新后)
 | 3D 打印机 | 拓竹(经 Home Assistant) | HA 地址 + 令牌 |
 | 资讯 | RSS 订阅源(默认预置 AIHOT) | 无需密钥;网页填任意 RSS URL |
 | 下载 | qBittorrent / Transmission(可多台) | 地址+端口+账号密码;合并显示所有种子 |
+| 相册 | iCloud 公开共享相册 | 共享相册「公开网站」链接(无需登录) |
 
 详见 [docs/install.md](docs/install.md)(详细步骤 + 故障排查)、[数据契约](docs/data-contract.md)。
 
@@ -502,6 +503,7 @@ docker compose up -d --build     # rebuild (after code updates)
 | 3D printer | Bambu Lab (via Home Assistant) | HA address + token |
 | News | RSS feeds (AIHOT preloaded) | No key; add any RSS URL on the web UI |
 | Downloads | qBittorrent / Transmission (multiple) | host+port+credentials; all torrents merged |
+| Album | iCloud public shared album | The album's 'Public Website' link (no sign-in) |
 
 See [docs/install.md](docs/install.md) (detailed steps + troubleshooting), [data contract](docs/data-contract.md).
 

@@ -253,6 +253,24 @@ def test_calendar_solar_terms_are_calculated_after_2026():
     assert bc.solar_term_text(date(2028, 1, 6)) == "今日小寒"
 
 
+def test_album_context_empty_when_no_cache():
+    ctx = bc.prep_context(datetime.now(), {}, {})
+    assert ctx["album"]["total"] == 0
+    assert ctx["album"]["photo"]["src"] == ""
+
+
+def test_album_context_picks_data_uri(tmp_path):
+    from PIL import Image
+    p = str(tmp_path / "g1.png")
+    Image.new("L", (10, 10)).save(p, "PNG")
+    cache = {"album_photos": [{"guid": "g1", "path": p}]}
+    cfg = {"album": {"shared_url": "https://www.icloud.com/sharedalbum/#B0X", "order": "sequential"}}
+    ctx = bc.prep_context(datetime.now(), cache, cfg)
+    assert ctx["album"]["total"] == 1
+    assert ctx["album"]["photo"]["src"].startswith("data:image/png;base64,")
+    assert ctx["album"]["index"] == 1
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

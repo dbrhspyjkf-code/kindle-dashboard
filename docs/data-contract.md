@@ -260,3 +260,16 @@
 | `lyrics` | list | `[{t,text}]` | 时间轴歌词,按 `t`(秒)升序;空=无歌词→回退普通播放器。源见 `server/sources/lyrics.py`(网易云优先+LRCLIB 兜底,专辑>歌手>时长选版本),换歌后台线程查、按 track_id 缓存,开关 `music.lyrics_enabled`(默认开) |
 
 > 完整字段(含 album_artist/composer/genre/year/track_number/loved/play_count 等可选项,及 state_since/paused_for/artwork_wall* 等屏保态字段)见 `server/render/contract.py` 的 `empty_music()`(逐字段注释,为权威定义)。字段名不用 dict 方法名。
+
+## `album` —— 相册(iCloud 公开共享相册)
+
+`photo.src` 为空 → 该页隐藏。照片经过**灰度抖动处理**以适应 E-ink 显示(墨水屏原理);轮播选图在 `build_context` 做(无状态时间分桶选起始位)。数据源为 iCloud 公开共享相册(见 `server/sources/icloud_album.py`)。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `photo.src` | str | 处理后照片的 base64 data URI(Kindle 出图内嵌,与 music 封面墙同理);空=该页降级显占位 |
+| `photo.guid` | str | iCloud 照片 guid(唯一标识,用于缓存) |
+| `index` | int | 当前展示照片序号(从 1 起,给模板显示「第 x 张」) |
+| `total` | int | 相册照片总数(显示「/N」) |
+
+> 照片处理见 `server/sources/album_image.py`(E-ink 灰度抖动);iCloud 链接接入见 `server/sources/icloud_album.py`。
