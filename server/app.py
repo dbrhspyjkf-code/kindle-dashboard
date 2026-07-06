@@ -779,10 +779,15 @@ def source_loop(src):
 
 def render_loop():
     """渲染独立线程:按 render 间隔从缓存出图,不受采集快慢影响(时钟永不冻)。
-    并负责热重载配置(唯一调 maybe_reload 的线程,避免多线程竞争)。"""
+    并负责热重载配置(唯一调 maybe_reload 的线程,避免多线程竞争)。
+    00:00-07:00 跳过实际渲染(Kindle 端同一时段也不拉图),省 CPU/无头 Chrome 开销;
+    /kindle/frame.png 会继续吐上一次渲染留在缓存里的图,不受影响。"""
     while True:
         cm.maybe_reload()
         cfg = cm.get()
+        if 0 <= datetime.now().hour < 7:
+            time.sleep(_interval(cfg, *RENDER_INTERVAL))
+            continue
         try:
             render_all(cfg)
         except Exception as e:
