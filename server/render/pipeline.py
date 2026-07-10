@@ -13,6 +13,7 @@ import glob
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -193,9 +194,13 @@ def _shot_to_image(html: str, rc: RenderConfig) -> Image.Image:
         # macOS Dock 抖动根因(2026-06-24 纠正):**完整 Chrome 的 `--headless=new` 是真浏览器、会建平台窗口
         # → 在 Dock 闪一下图标**(此前 CLAUDE.md 记反了)。chrome-headless-shell 本身就是无头壳、不弹 Dock,
         # 且**不接受 `--headless` flag**(它默认无头)。所以:用 shell 时不加 --headless;用完整 Chrome 才加。
+        # Linux Chromium 128(Debian bookworm,ARM64 实测)`--headless=new` 截图管线有 bug:
+        # 声明画布(如 800x600)只有前 ~85% 高度被实际绘制,底部一截长期空白/裁切,
+        # 与内容多少、字体、device-scale-factor 均无关(纯定位 div 验证过)。
+        # `--headless=old` 无此问题,Linux 没有 Dock 顾虑,改用它。
         cmd = [chrome]
         if not is_headless_shell(chrome):
-            cmd.append("--headless=new")
+            cmd.append("--headless=old" if sys.platform.startswith("linux") else "--headless=new")
         cmd += [
             "--no-sandbox", "--disable-gpu",
             "--no-crashpad", "--disable-crash-reporter",
